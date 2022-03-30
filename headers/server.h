@@ -7,7 +7,6 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-
 #define TCP_END "***"
 #define UDP_END "+++"
 
@@ -18,6 +17,7 @@
 #define REGOK   "REGOK "
 #define REGNO   "REGNO"
 #define START   "START"
+#define NMEMB   "NMEMB"
 #define UNREG   "UNREG"
 #define UNROK   "UNROK "
 #define DUNNO   "DUNNO"

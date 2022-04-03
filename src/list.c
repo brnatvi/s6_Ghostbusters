@@ -1,5 +1,5 @@
 #include <stdlib.h> 
-#include "listd.h"
+#include "list.h"
 
 // Remove element (return 0 if success, -1 if error)
 int removeEl(struct listElements_t *list, struct element_t *el)

@@ -1,5 +1,5 @@
-#ifndef LISTD_H
-#define LISTD_H
+#ifndef LIST_H
+#define LIST_H
 
 struct element_t
 {
@@ -24,4 +24,4 @@ void*               pullLast(struct listElements_t *list);
 struct element_t*   pushFirst(struct listElements_t *list, void *data);
 struct element_t*   pushLast(struct listElements_t *list, void *data);
 
-#endif //LISTD_H
+#endif //LIST_H

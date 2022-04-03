@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <string.h>
 
 typedef struct stGamer stGamer;
 typedef struct stGhost stGhost;
@@ -26,19 +27,18 @@ struct stGhost
     
 enum eCellType
 {
+    eCellEmpty,
     eCellGamer,
     eCellGhost,
     eCellWall,
-    eCellEmpty
 };
 
 struct stCell
 {
-    int nb;
-    // enum eCellType eType;
-    // struct stGamer *gamer;
-    // struct stGhost *ghost;
-    // pthread_mutex_t lock;  
+    enum eCellType eType;
+    struct stGamer *gamer;
+    struct stGhost *ghost;
+    pthread_mutex_t lock;  
 };
 
 struct stMaze                  
@@ -59,13 +59,27 @@ stCell **generate_maze(int lines, int columns){
 
     for(int i = 0; i<lines; i++){
         for(int j = 0; j<columns; j++){
-            lab[i][j].nb = 0;  
+
+            if((j==0 && i!=3) || (j==1 && i==5) ||
+            (j==2 && i != 4) || 
+            (j==3 && i==0) || (j==3 && i==2) || (j==3 && i==5) ||
+            (j == 4 && i == 0) || (j == 4 && i == 5) ||
+            (j==5 && i==0) || (j==5 && i==2) || (j==5 && i==3) ||
+            (j==6 && i!=1)){
+                lab[i][j].eType = eCellWall;
+                //lab[i][j].gamer = ;
+                //lab[i][j].ghost = ;
+            }
+            else {
+                lab[i][j].eType = eCellEmpty;  
+            }
+            
         }
     }
     return lab;
 }
 
-void print_maze(int lines, int columns){
+void print_maze(int lines, int columns, char *id){
     stCell** lab = generate_maze(lines,columns);
     for(int i = -1; i<lines; i++){
         for(int j = -1; j<columns; j++){
@@ -73,14 +87,20 @@ void print_maze(int lines, int columns){
                 printf("\t");
             }
             else if(i == -1){
-                printf("%d\t",j+1);
+                printf("%d\t",j);
             }
             else if(j == -1){
-                printf("%d\t", i+1);
+                printf("%d\t", i);
             }
             
             else {
-                printf("%d\t", lab[i][j].nb);
+                if(strcmp(lab[i][j].gamer->id, id)){
+                    printf("%d\t", lab[i][i].eType); //le joueur ne voit que sa position
+                }
+                else {
+                    printf("%d\t", 0); //le client ne voit pas les autres joueurs, ni les fantômes, ni les murs
+                }
+                
             }
             
             
@@ -91,6 +111,6 @@ void print_maze(int lines, int columns){
 }
 
 int main(void){
-    print_maze(6,7);
+    print_maze(6,7, "tharsiya");
 }
 

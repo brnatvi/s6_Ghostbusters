@@ -39,14 +39,13 @@ lExit:
     return rez;
 }
 
-
 // communication with client
 void *communication(void *args)
-{   
+{
     // // declaration & initialisation
     struct stCommunication *context = (struct stCommunication *)(args);
     //struct stGamer gamer = context->gamer;
-    int fd2 = context->gamer->fd2;   
+    int fd2 = context->gamer->fd2;
     unsigned int n = context->connection->games->count;
 
     ssize_t rezRecv = -1;
@@ -84,7 +83,7 @@ void *communication(void *args)
             goto lClose;
         }
         gameEl = gameEl->next;
-    }  
+    }
 
     // listen answers
     while (1)
@@ -100,17 +99,42 @@ void *communication(void *args)
             goto lClose;
         }
 
-        char req[6];
-        strncpy(req, bufer, 5); // all messages start from 5 letters
+        printf("%s", bufer);
 
-        if (0 == strcmp(req, "NEWPL"))
-        {
-            printf("%s", bufer);
-            //-> NEWPL id port*** -> ask create game
-            //        - create new stGame, add it into list of games
-            //        - add this gamer into list of gamers
-            //                REGOK m*** -> inscription OK
-            //                REGNO*** -> inscription refusée
+        char req[6]; // all messages start from 5 letters
+        strncpy(req, bufer, 5);
+
+        if (0 == strcmp(req, "NEWPL")) //-> NEWPL id port*** -> ask create game
+        {        
+            // create new game
+            struct stGame *newGame = createGame(context, bufer);
+            if (!newGame)
+            {
+                // REGNO*** -> inscription refusée
+                sprintf(answer, "%s%s%c", REGNO, TCP_END, '\0');                       
+            }
+            else
+            {
+                // add this game to list of games       REGOK m*** -> inscription OK
+                pushLast(context->connection->games, newGame); 
+                printf("lastGameId = %d\n", context->connection->lastGameId);
+               
+
+                // add this gamer to list of gamers
+                char name[SIZE_ID];
+                strncpy(name, bufer + 6, 8);
+                name[8] = '\0';
+                context->gamer->id = name;
+
+                printf("gamer->id = %s\n", context->gamer->id );
+
+                pushLast(newGame->gamers, context->gamer); 
+
+                sprintf(answer, "%s%d%s%c", REGOK, context->connection->lastGameId, TCP_END, '\0');                
+            }
+
+            rezSend = send(fd2, answer, strlen(answer), 0);             
+            // TODO checking send
         }
         else if (0 == strcmp(req, "REGIS"))
         {
@@ -160,9 +184,9 @@ void *communication(void *args)
         //                      + create UDP
         //                      + launch engine on it with this stGame
     }
-
+    
 lClose:
-    CLOSE(fd2);
+    CLOSE(fd2);    
     return NULL;
 }
 
@@ -212,3 +236,30 @@ int acceptAndCommunication(struct stConnection *connect)
 lExit:
     return rez;
 }
+
+// create new game and fill folowing fields: idGame, port.
+// return this new game
+struct stGame* createGame(struct stCommunication *context, char* bufer)
+{
+    //create new stGame
+    struct stGame *game = (struct stGame *)malloc(sizeof(struct stGame));
+    if (!game)
+    {
+        perror("malloc stGame");
+        return NULL;
+    }
+    //create id if game
+    context->connection->lastGameId++;
+    game->idGame = context->connection->lastGameId;
+    printf("NEW GAME:\ngame->idGame %d\n", game->idGame);
+
+    //fill <port> field (bufer = "NEWPL id port***")
+    char port[4];
+    strncpy(port, bufer + 6 + 9, 4);
+ 
+    game->port = atoi(port);
+    printf("game->port = %d\n", game->port);
+
+    return game;
+}
+

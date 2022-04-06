@@ -10,13 +10,14 @@
 
 #include <time.h>
 
-#define SIZE_ID     8
+#define SIZE_ID     9
 #define BUF_SIZE    512
+
 
 ////////////////////////////////// Structures ////////////////////////////////////
 struct stGamer
 {                                       // for protocol
-    char        id[SIZE_ID];                     //char[8];          // id of gamer
+    char*       id;                        //char[8];          // id of gamer
     uint32_t    IP;                        //char[15]          // IP of gamer
     uint16_t    x;                         //char[3];          // position x
     uint16_t    y;                         //char[3];          // position y
@@ -26,7 +27,7 @@ struct stGamer
 
 struct stGhost                 
 {                   
-    uint16_t    id;                        //******            // id of ghost
+    uint16_t    id;                                            // id of ghost
     uint16_t    x;                         //char[3];          // position x
     uint16_t    y;                         //char[3];          // position y
 };
@@ -48,11 +49,11 @@ struct stCell
 
 struct stLabirinth                  
 {                   
-    uint16_t               heigh;                      //uint_16;         // heigh
-    uint16_t               width;                      //uint_16;         // width  
-    uint8_t                ghostCount;                  //number of ghosts
+    uint16_t               heigh;              //uint_16;         // heigh
+    uint16_t               width;              //uint_16;         // width  
+    uint8_t                ghostCount;                            //number of ghosts
     struct listElements_t* ghosts;
-    struct stCell*         grid;                 //labirynth
+    struct stCell*         grid;                                  //labirynth
 };
 
 struct stGame
@@ -60,7 +61,7 @@ struct stGame
     uint8_t                idGame;
     struct listElements_t* gamers;    
     struct stLabirinth*    labirinth;
-    uint16_t               port;        //char[4]    
+    uint16_t               port;              //char[4]    
 };
 
 struct stConnection
@@ -68,6 +69,7 @@ struct stConnection
     int                    fd1;    
     struct sockaddr_in     sockAddress;  
     struct listElements_t* games;  
+    uint16_t               lastGameId;
 };
 
 struct stCommunication
@@ -81,6 +83,7 @@ struct stCommunication
 int   createTcpConnection(struct stConnection * connect, int port);
 int   acceptAndCommunication(struct stConnection* connect);
 void* communication(void *args);
+struct stGame* createGame(struct stCommunication *context, char* bufer);
 
 
 ////////////////////////////////// Macros' //////////////////////////////////////

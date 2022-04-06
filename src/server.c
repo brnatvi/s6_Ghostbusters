@@ -34,6 +34,7 @@ int main(int argc, char **argv)
         goto lExit;
     }
     connect->games->first = NULL;
+    connect->lastGameId = 0;
   
      
     // create TCP socket (bind port) and wait for connection 

@@ -1,6 +1,7 @@
 #include "server.h"
 #include "commons.h"
 
+// IMPORTANT!!! to test with nc dont use <enter> to send, but <ctrl d> (probleme of \0 ending)
 
 int main(int argc, char **argv)
 {
@@ -27,7 +28,7 @@ int main(int argc, char **argv)
     connect->sockAddress.sin_port = htons(port);                       // TODO check that need htons
     connect->sockAddress.sin_addr.s_addr = htonl(INADDR_ANY);          // TODO check that need htons
 
-    connect->games = (struct listElements_t*) malloc(sizeof(struct listElements_t));           // TODO BAD!!!
+    connect->games = (struct listElements_t*) malloc(sizeof(struct listElements_t));
     if (!connect->games)
     {
         perror("malloc listElements_t");

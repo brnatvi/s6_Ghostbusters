@@ -10,7 +10,7 @@
 
 #include <time.h>
 
-#define SIZE_ID     9
+#define SIZE_ID     8
 #define BUF_SIZE    512
 
 

@@ -261,7 +261,8 @@ ssize_t processREGIS(struct stCommunication *context, char *bufer, ssize_t rezSe
     iter += LEN_KEYWORD + 1;
 
     char name[30];        
-    strncpy(name, iter, LEN_ID);    
+    strncpy(name, iter, LEN_ID);
+    name[LEN_ID] = 0;   
     printf("new gamer : %s\n", name);
 
     char stPort[30];
@@ -287,7 +288,8 @@ ssize_t processREGIS(struct stCommunication *context, char *bufer, ssize_t rezSe
 
         // REGOK m*** -> inscription OK
         if (game->idGame == m)
-        {
+        {            
+                                                                                // TODO check if gamer is not registered yet
             pushLast(game->gamers, context->gamer);
             sprintf(answer, "%s%d%s%c", REGOK, m, TCP_END, '\0');
             rezSend = send(fd2, answer, strlen(answer), 0);

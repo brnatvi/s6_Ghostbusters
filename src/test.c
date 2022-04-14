@@ -1,9 +1,11 @@
 #include "server.h"
 #include "commons.h"
 #include "server_aux_functions.h" 
-                 
+ 
+// Usage: 
+//          ./test NEWPL <name> <port>
+//          ./test REGIS <name> <port>
 
-// Usage: ./client REGIS <name> <port>
 
 int main(int argc, char **argv)
 {
@@ -56,6 +58,20 @@ int main(int argc, char **argv)
     if (0 == strcmp(keyWord, "NEWPL"))
     {
         // NEWPL id port***
+
+        char msg[32];
+        sprintf(msg, "%s %s %s%s", keyWord, name, port, end);
+        
+        printf("client has been send : %s", msg);
+
+        ssize_t rezSend = send(fd, msg, 22, 0);
+        if (rezSend < 22)
+        {
+            perror("REGIS sending failure");
+            rez = EXIT_FAILURE;
+            CLOSE(fd);
+            return rez;
+        }
     }
 
     else if (0 == strcmp(keyWord, "REGIS"))

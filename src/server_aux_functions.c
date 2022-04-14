@@ -72,7 +72,7 @@ int acceptAndCommunication(struct stConnection *connect)
         memset(context, 0, sizeof(struct stCommunication));
 
         gamer->fd2 = fd2;
-        gamer->IP = atoi(inet_ntoa(connect->sockAddress.sin_addr)); // TODO check that need htons
+        gamer->ipTCP = atoi(inet_ntoa(connect->sockAddress.sin_addr)); // TODO check that need htons
         context->gamer = gamer;
         context->connection = connect;
 
@@ -84,7 +84,7 @@ int acceptAndCommunication(struct stConnection *connect)
             rez = EXIT_FAILURE;
             goto lExit;
         }
-        printf("communication created : \nfd2 = %d \nIP = %d\n", gamer->fd2, gamer->IP);
+        printf("communication created : \nfd2 = %d \nIP = %d\n", gamer->fd2, gamer->ipTCP);
     }
 
 lExit:
@@ -111,8 +111,6 @@ void *communication(void *args)
     // listen answers
     while (1)
     {
-        //rezRecv = recv(fd2, bufer, BUF_SIZE, 0);
-
         rezRecv = recieveMessage(fd2, bufer, TCP_END);
         if (rezRecv < 0) //error occured
         {
@@ -127,7 +125,7 @@ void *communication(void *args)
         char req[LEN_KEYWORD + 1];
         strncpy(req, bufer, LEN_KEYWORD);
 
-        if (0 == strcmp(req, "NEWPL")) 
+        if (0 == strcmp(req, "NEWPL"))
         {
             processNEWPL(context, bufer, rezSend, answer);
         }
@@ -174,9 +172,9 @@ lClose:
 }
 
 //////////////////////////// Process functions //////////////////////////////
+////           return -1 if error, else number of sent bytes      ////////
 
 // send info about all games and about each game
-// return -1 if error, else 0
 ssize_t processINFO(struct stCommunication *context, ssize_t rezSend, char *answer)
 {
     int fd2 = context->gamer->fd2;
@@ -210,27 +208,35 @@ ssize_t processINFO(struct stCommunication *context, ssize_t rezSend, char *answ
         }
         gameEl = gameEl->next;
     }
-    return 0;
+    return rezSend;
 }
 
 //-> NEWPL id port*** -> ask create game
 ssize_t processNEWPL(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
 {
     int fd2 = context->gamer->fd2;
+    char* iter = (char*)(bufer + LEN_KEYWORD + 1);
+
     // create new game
     struct stGame *newGame = createGame(context, bufer);
     if (newGame) //REGOK m*** -> inscription OK
     {
         // add this game to list of games
         pushLast(context->connection->games, newGame);
-        printf("lastGameId = %d\n", context->connection->lastGameId);
+        //printf("lastGameId = %d\n", context->connection->lastGameId);
 
-        // add name to this gamer
-        char name[LEN_ID];
-        strncpy(name, bufer + LEN_KEYWORD + 1, LEN_ID);
+        // add name for this gamer
+        char name[LEN_ID + 1];
+        strncpy(name, iter, LEN_ID);
         name[LEN_ID] = '\0';
         context->gamer->id = name;
-        printf("context->gamer %s - %d - %d - %d - %d\n", context->gamer->id, context->gamer->IP, context->gamer->score, context->gamer->x, context->gamer->y);
+        iter += LEN_ID + 1;
+
+
+        char port[LEN_PORT + 1];
+        strncpy(port, iter, LEN_PORT);
+        context->gamer->ipUDP = atoi(port);
+        //printf("context->gamer %s - %d - %d - %d - %d\n", context->gamer->id, context->gamer->ipTCP, context->gamer->score, context->gamer->x, context->gamer->y);
 
         // add this gamer to list of gamers
         pushLast(newGame->gamers, context->gamer);
@@ -253,33 +259,30 @@ ssize_t processNEWPL(struct stCommunication *context, char *bufer, ssize_t rezSe
     return rezSend;
 }
 
-//-> REGIS id port m*** -> rejoindre partie num m
+//-> REGIS id port m*** -> subscribe to game m
 ssize_t processREGIS(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
 {
     int fd2 = context->gamer->fd2;
-    char* iter = (char*) bufer;
-    iter += LEN_KEYWORD + 1;
+    char *iter = (char *)(bufer + LEN_KEYWORD + 1);
 
-    char name[30];        
+    char name[30];
     strncpy(name, iter, LEN_ID);
-    name[LEN_ID] = 0;   
-    printf("new gamer : %s\n", name);
+    name[LEN_ID] = 0;
+    context->gamer->id = name;
+    iter += LEN_ID + 1;
 
     char stPort[30];
-    iter += LEN_ID + 1;
     strncpy(stPort, iter, LEN_PORT);
     stPort[LEN_PORT] = 0;
-
     uint16_t port = atoi(stPort);
-    printf("asked port : %d\n", port);
+    context->gamer->ipUDP = port;
+    iter += LEN_PORT + 1;
 
     uint8_t m = 0;
-    iter += LEN_PORT + 1;
     memcpy(&m, iter, sizeof(m));
-    printf("asked game : %d\n", m);
+    //printf("asked game : %d\n", m);
 
     // add gamer into list of gamers of this game
-    //send info about each game
     struct element_t *gameEl = context->connection->games->first;
     struct stGame *game = NULL;
     while (gameEl)
@@ -288,9 +291,10 @@ ssize_t processREGIS(struct stCommunication *context, char *bufer, ssize_t rezSe
 
         // REGOK m*** -> inscription OK
         if (game->idGame == m)
-        {            
-                                                                                // TODO check if gamer is not registered yet
+        {
+            // TODO check if gamer is not registered yet
             pushLast(game->gamers, context->gamer);
+
             sprintf(answer, "%s%d%s%c", REGOK, m, TCP_END, '\0');
             rezSend = send(fd2, answer, strlen(answer), 0);
             if (rezSend < strlen(answer))
@@ -314,13 +318,60 @@ ssize_t processREGIS(struct stCommunication *context, char *bufer, ssize_t rezSe
     return rezSend;
 }
 
+//-> UNREG m*** -> unsubscribe from game m
 ssize_t processUNREG(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
 {
-    //-> UNREG m*** -> se désinscrire d'une partie
-    //        - remove from list of gamers of this game
-    //                UNROK m** -> désinscription OK
-    //                DUNNO*** -> m inconnu
-    return 0;
+    int fd2 = context->gamer->fd2;
+    char *iter = (char *)(bufer + LEN_KEYWORD + 1);
+
+    uint8_t m = 0;
+    memcpy(&m, iter, sizeof(m));
+    printf("asked game : %d\n", m);
+
+    // find game m
+    struct element_t *gameEl = context->connection->games->first;
+    struct stGame *game = NULL;
+    while (gameEl)
+    {
+        game = (struct stGame *)(gameEl->data);        
+        
+        if (game->idGame == m)
+        {
+            // find this gamer
+            struct element_t *gamerEl = game->gamers->first;
+            struct stGamer *gamer = NULL;
+            while (gamerEl)
+            {
+                gamer = (struct stGamer *)(gamerEl->data);
+                if (gamer->id == context->gamer->id)
+                {
+                    removeEl(game->gamers, gamerEl->data);
+
+                    // UNROK m*** -> unsubscribe OK
+                    sprintf(answer, "%s%d%s%c", UNROK, m, TCP_END, '\0');
+                    rezSend = send(fd2, answer, strlen(answer), 0);
+                    if (rezSend < strlen(answer))
+                    {
+                        perror("UNROK sending failure");
+                        return -1;
+                    }
+                    return rezSend;
+                }
+                gamerEl = gamerEl->next;
+            }
+        }
+        gameEl = gameEl->next;
+    }
+
+    // DUNNO*** -> m refused
+    sprintf(answer, "%s%s%c", DUNNO, TCP_END, '\0');
+    rezSend = send(fd2, answer, strlen(answer), 0);
+    if (rezSend < strlen(answer))
+    {
+        perror("DUNNO sending failure");
+        return -1;
+    }
+    return rezSend;
 }
 
 ssize_t processSIZE_(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
@@ -380,10 +431,10 @@ struct stGame *createGame(struct stCommunication *context, char *bufer)
     context->connection->lastGameId++;
     game->idGame = context->connection->lastGameId;
 
-    //fill <port> field (bufer = "NEWPL id port***")
-    char port[LEN_PORT];
-    strncpy(port, bufer + LEN_KEYWORD + 1 + LEN_ID + 1, LEN_PORT);
-    game->port = atoi(port);
+    ////fill <port> field (bufer = "NEWPL id port***")
+    //char port[LEN_PORT];
+    //strncpy(port, bufer + LEN_KEYWORD + 1 + LEN_ID + 1, LEN_PORT);
+    //game->port = atoi(port);
 
     return game;
 }

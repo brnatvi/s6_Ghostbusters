@@ -5,6 +5,7 @@
 // Usage: 
 //          ./test NEWPL <name> <port>
 //          ./test REGIS <name> <port>
+//          ./test UNREG <name>
 
 
 int main(int argc, char **argv)
@@ -105,6 +106,26 @@ int main(int argc, char **argv)
 
     else if (0 == strcmp(keyWord, "UNREG"))
     {
+        // UNREG m***
+        
+        memcpy(ansIter, keyWord, strlen(keyWord));
+        ansIter += strlen(keyWord);    
+        memcpy(ansIter, &m, sizeof(m));
+        ansIter += sizeof(m);
+        printf("%d", m);
+
+        memcpy(ansIter, end, strlen(end));
+        printf("%s\n", end);
+
+
+        ssize_t rezSend = send(fd, answer, 24, 0);
+        if (rezSend < 24)
+        {
+            perror("UNREG sending failure");
+            rez = EXIT_FAILURE;
+            CLOSE(fd);
+            return rez;
+        }
     }
 
     else if (0 == strcmp(keyWord, "SIZE?"))

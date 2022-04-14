@@ -124,10 +124,10 @@ void *communication(void *args)
             goto lClose;
         }
 
-        char req[6]; // all messages start from 5 letters + white
-        strncpy(req, bufer, 5);
+        char req[LEN_KEYWORD + 1];
+        strncpy(req, bufer, LEN_KEYWORD);
 
-        if (0 == strcmp(req, "NEWPL")) //-> NEWPL id port*** -> ask create game
+        if (0 == strcmp(req, "NEWPL")) 
         {
             processNEWPL(context, bufer, rezSend, answer);
         }
@@ -213,8 +213,9 @@ ssize_t processINFO(struct stCommunication *context, ssize_t rezSend, char *answ
     return 0;
 }
 
+//-> NEWPL id port*** -> ask create game
 ssize_t processNEWPL(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
-{    
+{
     int fd2 = context->gamer->fd2;
     // create new game
     struct stGame *newGame = createGame(context, bufer);
@@ -225,9 +226,9 @@ ssize_t processNEWPL(struct stCommunication *context, char *bufer, ssize_t rezSe
         printf("lastGameId = %d\n", context->connection->lastGameId);
 
         // add name to this gamer
-        char name[SIZE_ID];
-        strncpy(name, bufer + 6, 8);
-        name[8] = '\0';
+        char name[LEN_ID];
+        strncpy(name, bufer + LEN_KEYWORD + 1, LEN_ID);
+        name[LEN_ID] = '\0';
         context->gamer->id = name;
         printf("context->gamer %s - %d - %d - %d - %d\n", context->gamer->id, context->gamer->IP, context->gamer->score, context->gamer->x, context->gamer->y);
 
@@ -249,21 +250,70 @@ ssize_t processNEWPL(struct stCommunication *context, char *bufer, ssize_t rezSe
         perror("REGOK / REGNO sending failure");
         return -1;
     }
-    return 0;
+    return rezSend;
 }
 
+//-> REGIS id port m*** -> rejoindre partie num m
 ssize_t processREGIS(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
-{    
-    //-> REGIS id port m*** -> rejoindre partie num m
-    // if ask join game :
-    //        - add into list of gamers of this game
-    //                REGOK m*** -> inscription OK
-    //                REGNO*** -> inscription refusée
-    return 0;
+{
+    int fd2 = context->gamer->fd2;
+    char* iter = (char*) bufer;
+    iter += LEN_KEYWORD + 1;
+
+    char name[30];        
+    strncpy(name, iter, LEN_ID);    
+    printf("new gamer : %s\n", name);
+
+    char stPort[30];
+    iter += LEN_ID + 1;
+    strncpy(stPort, iter, LEN_PORT);
+    stPort[LEN_PORT] = 0;
+
+    uint16_t port = atoi(stPort);
+    printf("asked port : %d\n", port);
+
+    uint8_t m = 0;
+    iter += LEN_PORT + 1;
+    memcpy(&m, iter, sizeof(m));
+    printf("asked game : %d\n", m);
+
+    // add gamer into list of gamers of this game
+    //send info about each game
+    struct element_t *gameEl = context->connection->games->first;
+    struct stGame *game = NULL;
+    while (gameEl)
+    {
+        game = (struct stGame *)(gameEl->data);
+
+        // REGOK m*** -> inscription OK
+        if (game->idGame == m)
+        {
+            pushLast(game->gamers, context->gamer);
+            sprintf(answer, "%s%d%s%c", REGOK, m, TCP_END, '\0');
+            rezSend = send(fd2, answer, strlen(answer), 0);
+            if (rezSend < strlen(answer))
+            {
+                perror("REGOK sending failure");
+                return -1;
+            }
+            return rezSend;
+        }
+        gameEl = gameEl->next;
+    }
+
+    // REGNO*** -> inscription refused
+    sprintf(answer, "%s%s%c", REGNO, TCP_END, '\0');
+    rezSend = send(fd2, answer, strlen(answer), 0);
+    if (rezSend < strlen(answer))
+    {
+        perror("REGNO sending failure");
+        return -1;
+    }
+    return rezSend;
 }
 
 ssize_t processUNREG(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
-{    
+{
     //-> UNREG m*** -> se désinscrire d'une partie
     //        - remove from list of gamers of this game
     //                UNROK m** -> désinscription OK
@@ -329,8 +379,8 @@ struct stGame *createGame(struct stCommunication *context, char *bufer)
     game->idGame = context->connection->lastGameId;
 
     //fill <port> field (bufer = "NEWPL id port***")
-    char port[4];
-    strncpy(port, bufer + 6 + 9, 4);
+    char port[LEN_PORT];
+    strncpy(port, bufer + LEN_KEYWORD + 1 + LEN_ID + 1, LEN_PORT);
     game->port = atoi(port);
 
     return game;

@@ -10,8 +10,10 @@
 
 #include <time.h>
 
-#define SIZE_ID     8
-#define BUF_SIZE    512
+#define LEN_ID          8
+#define LEN_KEYWORD     5
+#define LEN_PORT        4
+#define BUF_SIZE        512
 
 
 ////////////////////////////////// Structures ////////////////////////////////////

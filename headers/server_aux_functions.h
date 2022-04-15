@@ -22,5 +22,5 @@ ssize_t processGAMES(struct stCommunication *context, char *bufer, ssize_t rezSe
 
 //////////////////////////// Aux functions /////////////////////////////////
 
-ssize_t recieveMessage(int fd, char *bufer, char* ending);
+size_t recieveMessage(int fd, char *bufer, char* ending);
 struct stGame *createGame(struct stCommunication *context, char *bufer);

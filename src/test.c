@@ -1,24 +1,45 @@
 #include "server.h"
 #include "commons.h"
-#include "server_aux_functions.h" 
- 
-// Usage: 
+#include "server_aux_functions.h"
+#include <fcntl.h>
+
+#define PRINT_PROTOCOL
+
+
+
+// Usage:
 //          ./test NEWPL <name> <port>
 //          ./test REGIS <name> <port>
 //          ./test UNREG <name>
 
+//void to_File(int fd, char *buf)
+//{
+//    int file = open("/home/nata/Documents/L3_Reseaux/1_Projet/test.bin", O_RDWR, O_APPEND,
+//                    S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH);
+//    if (file < 0)
+//    {
+//        perror("open failure");
+//        CLOSE(fd);
+//    }
+//    int r = write(file, buf, strlen(buf));
+//    if (r < strlen(buf))
+//    {
+//        perror("write failure");
+//    }
+//    CLOSE(file);
+//}
 
 int main(int argc, char **argv)
-{
+{   
+
     char answer[BUF_SIZE];
-    char* ansIter = (char *)answer;
+    char *iter = (char *)answer;
 
     char buf[BUF_SIZE];
     int rez = EXIT_SUCCESS;
-    char* end = "***";
 
-    char *keyWord = argv[1]; 
-    char * name = argv[2];    
+    char *keyWord = argv[1];
+    char *name = argv[2];
     char *port = argv[3];
     uint8_t m = 1;
 
@@ -53,49 +74,58 @@ int main(int argc, char **argv)
         return rez;
     }
 
-    recieveMessage(fd, buf, TCP_END);
-    printf("%s\n", buf);
+    ssize_t len = recieveMessage(fd, buf, TCP_END);
 
-    if (0 == strcmp(keyWord, "NEWPL"))
+#if defined(PRINT_PROTOCOL)
+    iter = buf;
+    for (ssize_t i = 0; i < len; i++)
+    {
+        printf("0x%02X(%c) ", *iter, *iter ? *iter : '0');
+        iter++;
+    }
+    printf("\n");
+#endif
+    
+
+    if (0 == strcmp(keyWord, NEWPL))
     {
         // NEWPL id port***
 
-        char msg[32];
-        sprintf(msg, "%s %s %s%s", keyWord, name, port, end);
-        
-        printf("client has been send : %s", msg);
+        sprintf(answer, "%s %s %s%s%c", NEWPL, name, port, TCP_END, '\0');
+        printf("client has been send : %s\n", answer);
+        //fflush(stdout);
 
-        ssize_t rezSend = send(fd, msg, 22, 0);
-        if (rezSend < 22)
+        ssize_t rezSend = send(fd, answer, strlen(answer), 0);
+        if (rezSend < strlen(answer))
         {
-            perror("REGIS sending failure");
+            perror("NEWPL sending failure");
             rez = EXIT_FAILURE;
             CLOSE(fd);
             return rez;
         }
     }
 
-    else if (0 == strcmp(keyWord, "REGIS"))
+    else if (0 == strcmp(keyWord, REGIS))
     {
-        // REGIS id port m***        
-        
+        // REGIS id port m***
+
         char prefix[32];
-        sprintf(prefix, "%s %s %s %c", keyWord, name, port, '\0');
-        //printf("%s", prefix);
-        printf("client has been send : %s", prefix);
+        sprintf(prefix, "%s %s %s %c", REGIS, name, port, '\0');
+        iter = answer;
 
-        memcpy(ansIter, prefix, strlen(prefix));
-        ansIter += strlen(prefix);    
-        memcpy(ansIter, &m, sizeof(m));
-        ansIter += sizeof(m);
-        printf("%d", m);
+        memcpy(iter, prefix, strlen(prefix));
+        iter += strlen(prefix);
 
-        memcpy(ansIter, end, strlen(end));
-        printf("%s\n", end);
+        memcpy(iter, &m, sizeof(m));
+        iter += sizeof(m);
 
+        memcpy(iter, TCP_END, strlen(TCP_END));
+        iter += strlen(TCP_END);
 
-        ssize_t rezSend = send(fd, answer, 24, 0);
-        if (rezSend < 24)
+        ssize_t answerLen = iter - answer;
+
+        ssize_t rezSend = send(fd, answer, answerLen, 0);
+        if (rezSend < answerLen)
         {
             perror("REGIS sending failure");
             rez = EXIT_FAILURE;
@@ -104,22 +134,26 @@ int main(int argc, char **argv)
         }
     }
 
-    else if (0 == strcmp(keyWord, "UNREG"))
+    else if (0 == strcmp(keyWord, UNREG))
     {
         // UNREG m***
-        
-        memcpy(ansIter, keyWord, strlen(keyWord));
-        ansIter += strlen(keyWord);    
-        memcpy(ansIter, &m, sizeof(m));
-        ansIter += sizeof(m);
-        printf("%d", m);
 
-        memcpy(ansIter, end, strlen(end));
-        printf("%s\n", end);
+        memcpy(iter, keyWord, strlen(keyWord));
+        iter += strlen(keyWord);
 
+        memcpy(iter, WHITE, strlen(WHITE));
+        iter += strlen(WHITE);
 
-        ssize_t rezSend = send(fd, answer, 24, 0);
-        if (rezSend < 24)
+        memcpy(iter, &m, sizeof(m));
+        iter += sizeof(m);
+
+        memcpy(iter, TCP_END, strlen(TCP_END));
+        iter += strlen(TCP_END);
+
+        ssize_t answerLen = iter - answer;
+
+        ssize_t rezSend = send(fd, answer, answerLen, 0);
+        if (rezSend < answerLen)
         {
             perror("UNREG sending failure");
             rez = EXIT_FAILURE;
@@ -144,8 +178,8 @@ int main(int argc, char **argv)
     {
     }
 
-    recieveMessage(fd, buf, TCP_END);
-    printf("%s\n", buf);
+    recieveMessage(fd, buf, TCP_END);   
 
+    CLOSE(fd);
     return 0;
 }

@@ -20,8 +20,8 @@
 struct stGamer
 {                                       // for protocol
     char*       id;                        //char[8];          // id of gamer
-    uint32_t    ipTCP;                     //char[15]          // IP of gamer
-    uint32_t    ipUDP;                     //char[15]          // IP of gamer
+    uint32_t    ipAddress;                 //char[15]          // IP adresse of gamer
+    uint8_t     portUDP;                   //char[4]           // UDP port of gamer
     uint16_t    x;                         //char[3];          // position x
     uint16_t    y;                         //char[3];          // position y
     uint16_t    score;                     //char[4];          // score  

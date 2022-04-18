@@ -3,37 +3,34 @@
 
 #define PRINT_PROTOCOL
 
-
-// IMPORTANT!!! to test with nc dont use <enter> to send, but <ctrl d> (probleme of \0 ending)
-
 // create socket, bind, listen
 // return 0 (success) or -1 (failure)
-int createTcpConnection(struct stConnection *connect, int port)
+int createTcpConnection(struct stServerContext *context, int port)
 {
     int rez = EXIT_SUCCESS;
 
     // fill sockaddr_in
-    connect->sockAddress.sin_family = AF_INET;
-    connect->sockAddress.sin_port = htons(port);              // TODO check that need htons
-    connect->sockAddress.sin_addr.s_addr = htonl(INADDR_ANY); // TODO check that need htons
+    context->sockAddress.sin_family = AF_INET;
+    context->sockAddress.sin_port = htons(port);              // TODO check that need htons
+    context->sockAddress.sin_addr.s_addr = htonl(INADDR_ANY); // TODO check that need htons
 
     //create a socket
-    connect->fd1 = socket(AF_INET, SOCK_STREAM, 0);
-    if (connect->fd1 < 0)
+    context->fd1 = socket(AF_INET, SOCK_STREAM, 0);
+    if (context->fd1 < 0)
     {
         perror("P: cannot create socket");
         rez = -1;
         goto lExit;
     }
 
-    rez = bind(connect->fd1, (struct sockaddr *)&connect->sockAddress, sizeof(struct sockaddr_in));
+    rez = bind(context->fd1, (struct sockaddr *)&context->sockAddress, sizeof(struct sockaddr_in));
     if (rez < 0)
     {
         perror("P: bind failure");
         goto lExit;
     }
 
-    rez = listen(connect->fd1, 0);
+    rez = listen(context->fd1, 0);
     if (rez < 0)
     {
         perror("P:listen failure");
@@ -46,16 +43,16 @@ lExit:
 
 // accept connection
 // return 0 (success) or 1 (failure)
-int acceptAndCommunication(struct stConnection *connect)
+int acceptAndCommunication(struct stServerContext *context)
 {
     int rez = EXIT_SUCCESS;
     pthread_t th;
 
     int fd2 = -1;
-    socklen_t len = sizeof(connect->sockAddress);
+    socklen_t len = sizeof(context->sockAddress);
 
     // make accept
-    fd2 = accept(connect->fd1, (struct sockaddr *)&connect->sockAddress, &len);
+    fd2 = accept(context->fd1, (struct sockaddr *)&context->sockAddress, &len);
     if (fd2 < 0) // error
     {
         perror("P: accept failure");
@@ -63,32 +60,33 @@ int acceptAndCommunication(struct stConnection *connect)
     }
     else // session started
     {
-        // create gamer
-        struct stGamer *gamer = (struct stGamer *)malloc(sizeof(struct stGamer));
-        struct stCommunication *context = (struct stCommunication *)malloc(sizeof(struct stCommunication));
-        if (!gamer || !context)
+        // create gamer and gamer's context
+        struct stGamerContext *pGamerContext = (struct stGamerContext *)malloc(sizeof(struct stGamerContext));
+        if (!pGamerContext)
         {
-            perror("malloc gamer or context failure");
+            perror("malloc gamer context failure");
             rez = EXIT_FAILURE;
             goto lExit;
         }
-        memset(gamer, 0, sizeof(struct stGamer));
-        memset(context, 0, sizeof(struct stCommunication));
 
-        gamer->fd2 = fd2;
-        gamer->ipAddress = atoi(inet_ntoa(connect->sockAddress.sin_addr)); // TODO check that need htons
-        context->gamer = gamer;
-        context->connection = connect;
+        pGamerContext->pServerCtx = context;
+        pGamerContext->pGamer = createGamer(fd2, atoi(inet_ntoa(context->sockAddress.sin_addr))); // TODO check that need htons
+
+        if (!pGamerContext->pGamer)
+        {
+            perror("malloc gamer failure");
+            rez = EXIT_FAILURE;
+            goto lExit;
+        }
 
         // create thread of gamer for communication
-        int phRez = pthread_create(&th, NULL, communication, (void *)context);
+        int phRez = pthread_create(&th, NULL, communication, (void *)pGamerContext);
         if (phRez != 0) // error
         {
             perror("P: pthread_create failure");
             rez = EXIT_FAILURE;
             goto lExit;
         }
-        printf("communication created : \nfd2 = %d \nIP = %d\n", gamer->fd2, gamer->ipAddress);
     }
 
 lExit:
@@ -97,12 +95,11 @@ lExit:
 
 // communication with client
 void *communication(void *args)
-{      
-
+{
     // // declaration & initialisation
-    struct stCommunication *context = (struct stCommunication *)(args);
+    struct stGamerContext *pGamerContext = (struct stGamerContext *)(args);
     //struct stGamer gamer = context->gamer;
-    int fd2 = context->gamer->fd2;
+    int fd2 = pGamerContext->pGamer->fd2;
 
     ssize_t rezRecv = -1;
     ssize_t rezSend = -1;
@@ -111,7 +108,9 @@ void *communication(void *args)
     char bufer[BUF_SIZE];
     char answer[BUF_SIZE];
 
-    processINFO(context, rezSend, answer);
+    processINFO(pGamerContext, rezSend, answer);
+
+    printGamers(pGamerContext, __FUNCTION__);
 
     // listen answers
     while (1)
@@ -133,47 +132,48 @@ void *communication(void *args)
 
         if (0 == strcmp(req, NEWPL))
         {
-            processNEWPL(context, bufer, rezSend, answer);
+            processNEWPL(pGamerContext, bufer + LEN_KEYWORD + 1, rezSend, answer);
+            printGamers(pGamerContext, "+processNEWPL");
         }
-
         else if (0 == strcmp(req, REGIS))
         {
-            processREGIS(context, bufer, rezSend, answer);
+            processREGIS(pGamerContext, bufer + LEN_KEYWORD + 1, rezSend, answer);
+            printGamers(pGamerContext, "+processREGIS");
         }
-
         else if (0 == strcmp(req, UNREG))
         {
-            processUNREG(context, bufer, rezSend, answer);
+            processUNREG(pGamerContext, bufer + LEN_KEYWORD + 1, rezSend, answer);
+            printGamers(pGamerContext, "+processUNREG");
         }
-
-        else if (0 == strcmp(req, SIZE_Q))
-        {
-            processSIZE_(context, bufer, rezSend, answer);
-        }
-
+        // else if (0 == strcmp(req, SIZE_Q))
+        // {
+        //     processSIZE_(context, bufer, rezSend, answer);
+        // }
         else if (0 == strcmp(req, LIST_Q))
         {
-            processLIST_(context, bufer, rezSend, answer);
+            printGamers(pGamerContext, "-processLIST_");
+            processLIST_(pGamerContext, bufer + LEN_KEYWORD + 1, rezSend, answer);
         }
-
         else if (0 == strcmp(req, GAME_Q))
         {
-            processGAME_(context, bufer, rezSend, answer);
+            processGAME_(pGamerContext, rezSend, answer);
+            printGamers(pGamerContext, "+processGAME_");
         }
 
-        else if (0 == strcmp(req, GAMES))
-        {
-            processGAMES(context, bufer, rezSend, answer);
-        }
+        // else if (0 == strcmp(req, GAMES))
+        // {
+        //     processGAMES(context, bufer, rezSend, answer);
+        // }
 
-        //        - if START recieved from all gamers :                                             // TODO how manage this ? (routes, links between threads)
+        //        - if START recieved from all gamers :
         //                      + create thread
         //                      + create UDP
         //                      + launch engine on it with this stGame
     }
 
 lClose:
-    //CLOSE(fd2);
+    //freeGamer(pGamerContext->pGamer);
+    //freeGame(pGamerContext->pServerCtx->games);   // TODO Do not forget free all games at the end
     return NULL;
 }
 
@@ -181,10 +181,14 @@ lClose:
 ////           return -1 if error, else number of sent bytes      ////////
 
 // send info about all games and about each game
-ssize_t processINFO(struct stCommunication *context, ssize_t rezSend, char *answer)
+ssize_t processINFO(struct stGamerContext *gContext, ssize_t rezSend, char *answer)
 {
-    int fd2 = context->gamer->fd2;
-    unsigned int n = context->connection->games->count;
+    int fd2 = gContext->pGamer->fd2;
+
+    pthread_mutex_lock(&gContext->pServerCtx->serverLock);
+    unsigned int n = gContext->pServerCtx->games->count;
+    pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
+
     //send info about all games
     char *iter = answer;
 
@@ -199,16 +203,6 @@ ssize_t processINFO(struct stCommunication *context, ssize_t rezSend, char *answ
 
     ssize_t answerLen = (iter - answer);
 
-#if defined(PRINT_PROTOCOL)
-    iter = answer;
-    for (ssize_t i = 0; i < answerLen; i++)
-    {
-        printf("0x%02X(%c) ", *iter, *iter ? *iter : '0');
-        iter++;
-    }
-    printf("\n");
-#endif
-
     rezSend = send(fd2, answer, answerLen, 0);
     if (rezSend != answerLen)
     {
@@ -217,7 +211,7 @@ ssize_t processINFO(struct stCommunication *context, ssize_t rezSend, char *answ
     }
 
     //send info about each game
-    struct element_t *gameEl = context->connection->games->first;
+    struct element_t *gameEl = gContext->pServerCtx->games->first;
     struct stGame *game = NULL;
     while (gameEl)
     {
@@ -240,6 +234,16 @@ ssize_t processINFO(struct stCommunication *context, ssize_t rezSend, char *answ
 
         ssize_t answerLen = iter - answer;
 
+        //#if defined(PRINT_PROTOCOL)
+        //        iter = answer;
+        //        for (ssize_t i = 0; i < answerLen; i++)
+        //        {
+        //            printf("0x%02X(%c) ", *iter, *iter ? *iter : '0');
+        //            iter++;
+        //        }
+        //        printf("\n");
+        //#endif
+
         rezSend = send(fd2, answer, answerLen, 0);
 
         if (rezSend != answerLen)
@@ -253,33 +257,36 @@ ssize_t processINFO(struct stCommunication *context, ssize_t rezSend, char *answ
 }
 
 //-> NEWPL id port*** -> ask create game
-ssize_t processNEWPL(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
+ssize_t processNEWPL(struct stGamerContext *gContext, char *bufer, ssize_t rezSend, char *answer)
 {
-    int fd2 = context->gamer->fd2;
-    char *iter = (char *)(bufer + LEN_KEYWORD + 1);
+    int fd2 = gContext->pGamer->fd2;
+    char *iter = (char *)bufer;
 
     // create new game
-    struct stGame *newGame = createGame(context, bufer);
+    struct stGame *newGame = createGame(gContext, bufer);
     if (newGame) //REGOK m*** -> inscription OK
     {
         // add this game to list of games
-        pushLast(context->connection->games, newGame);
-        //printf("lastGameId = %d\n", context->connection->lastGameId);
+        addGame(gContext, newGame); //ADD LAST
 
         // add name for this gamer
-        char name[20];
-        strncpy(name, iter, LEN_ID);
-        name[LEN_ID] = 0;
-        context->gamer->id = name;
+        strncpy(gContext->pGamer->id, iter, LEN_ID);
         iter += LEN_ID + 1;
+
+        printf("from NEWPL 0 {%s}\n", gContext->pGamer->id);
 
         char port[20];
         strncpy(port, iter, LEN_PORT);
         port[LEN_PORT] = 0;
-        context->gamer->portUDP = atoi(port);
+        gContext->pGamer->portUDP = atoi(port);
 
         // add this gamer to list of gamers
-        pushLast(newGame->gamers, context->gamer);
+        addGamer(gContext, newGame, gContext->pGamer); //ADD LAST
+
+        struct stGame *pGame = (struct stGame *)gContext->pServerCtx->games->last->data;
+        struct stGamer *pGameR = (struct stGamer *)pGame->gamers->last->data;
+
+        printf("from NEWPL 1 {%s}\n", pGameR->id);
 
         //compose answer
         iter = answer;
@@ -317,40 +324,41 @@ ssize_t processNEWPL(struct stCommunication *context, char *bufer, ssize_t rezSe
 }
 
 //-> REGIS id port m*** -> subscribe to game m
-ssize_t processREGIS(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
+ssize_t processREGIS(struct stGamerContext *gContext, char *bufer, ssize_t rezSend, char *answer)
 {
-    int fd2 = context->gamer->fd2;
-    char *iter = (char *)(bufer + LEN_KEYWORD + 1);
+    int fd2 = gContext->pGamer->fd2;
+    char *iter = (char *)bufer;
 
-    char name[20];
-    strncpy(name, iter, LEN_ID);
-    name[LEN_ID] = 0;
-    context->gamer->id = name;
+    strncpy(gContext->pGamer->id, iter, LEN_ID);
     iter += LEN_ID + 1;
 
     char stPort[20];
     strncpy(stPort, iter, LEN_PORT);
     stPort[LEN_PORT] = 0;
     uint16_t port = atoi(stPort);
-    context->gamer->portUDP = port;
+    gContext->pGamer->portUDP = port;
+    // printf("%d\n", context->gamer->portUDP);
     iter += LEN_PORT + 1;
 
-    uint8_t m = 0;
-    memcpy(&m, iter, sizeof(m));
-    printf("asked game : %d\n", m);
+    uint8_t m = *(uint8_t *)iter;
+
+    printf("{%s} asked game : %d\n", __FUNCTION__, m);
 
     // add gamer into list of gamers of this game
-    struct element_t *gameEl = context->connection->games->first;
-    struct stGame *game = NULL;
+    struct element_t *gameEl = gContext->pServerCtx->games->first;
+    unsigned int isFound = 0;
     while (gameEl)
     {
-        game = (struct stGame *)(gameEl->data);
+        struct stGame *game = (struct stGame *)(gameEl->data);
 
         // REGOK m*** -> inscription OK
         if (game->idGame == m)
         {
-            // TODO check if gamer is not registered yet
-            pushLast(game->gamers, context->gamer);
+            addGamer(gContext, game, gContext->pGamer);
+
+            struct stGamer *g = (struct stGamer *)game->gamers->last->data;
+
+            printf("{%s} User ID{%s}\n", __FUNCTION__, g->id);
 
             char *iter = answer;
             memcpy(iter, REGOK, strlen(REGOK));
@@ -370,39 +378,44 @@ ssize_t processREGIS(struct stCommunication *context, char *bufer, ssize_t rezSe
                 perror("REGOK sending failure");
                 return -1;
             }
-            return rezSend;
+            isFound = 1;
         }
         gameEl = gameEl->next;
     }
-
-    // REGNO*** -> inscription refused
-    sprintf(answer, "%s%s%c", REGNO, TCP_END, '\0');
-    rezSend = send(fd2, answer, strlen(answer), 0);
-    if (rezSend < strlen(answer))
+    if (0 == isFound)
     {
-        perror("REGNO sending failure");
-        return -1;
+        // REGNO*** -> inscription refused
+        sprintf(answer, "%s%s%c", REGNO, TCP_END, '\0');
+        rezSend = send(fd2, answer, strlen(answer), 0);
+        if (rezSend < strlen(answer))
+        {
+            perror("REGNO sending failure");
+            return -1;
+        }
     }
+
     return rezSend;
 }
 
 //-> UNREG m*** -> unsubscribe from game m
-ssize_t processUNREG(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
+ssize_t processUNREG(struct stGamerContext *gContext, char *bufer, ssize_t rezSend, char *answer)
 {
-    printf("I'm in UNREG\n");
-    int fd2 = context->gamer->fd2;
-    char *iter = (char *)(bufer + LEN_KEYWORD + 1);
+    int fd2 = gContext->pGamer->fd2;
+    char *iter = (char *)bufer;
 
     uint8_t m = 0;
     memcpy(&m, iter, sizeof(m));
-    printf("asked game : %d\n", m);
+    // printf("asked game : %d\n", m);
 
     // find game m
-    struct element_t *gameEl = context->connection->games->first;
-    struct stGame *game = NULL;
+    pthread_mutex_lock(&gContext->pServerCtx->serverLock);
+
+    struct element_t *gameEl = gContext->pServerCtx->games->first;
+    unsigned int isFound = 0;
+
     while (gameEl)
     {
-        game = (struct stGame *)(gameEl->data);
+        struct stGame *game = (struct stGame *)(gameEl->data);
 
         if (game->idGame == m)
         {
@@ -412,9 +425,10 @@ ssize_t processUNREG(struct stCommunication *context, char *bufer, ssize_t rezSe
             while (gamerEl)
             {
                 gamer = (struct stGamer *)(gamerEl->data);
-                if (gamer->id == context->gamer->id)
+                if (gamer->id == gContext->pGamer->id)
                 {
                     removeEl(game->gamers, gamerEl->data);
+                    FREE_MEM(gamer);
 
                     // UNROK m*** -> unsubscribe OK
                     iter = answer;
@@ -436,25 +450,28 @@ ssize_t processUNREG(struct stCommunication *context, char *bufer, ssize_t rezSe
                         perror("UNROK sending failure");
                         return -1;
                     }
-                    return rezSend;
                 }
                 gamerEl = gamerEl->next;
             }
         }
         gameEl = gameEl->next;
     }
-    // DUNNO*** -> m refused
-    sprintf(answer, "%s%s%c", DUNNO, TCP_END, '\0');
-    rezSend = send(fd2, answer, strlen(answer), 0);
-    if (rezSend < strlen(answer))
+    pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
+    if (0 == isFound)
     {
-        perror("DUNNO sending failure");
-        return -1;
+        // DUNNO*** -> m refused
+        sprintf(answer, "%s%s%c", DUNNO, TCP_END, '\0');
+        rezSend = send(fd2, answer, strlen(answer), 0);
+        if (rezSend < strlen(answer))
+        {
+            perror("DUNNO sending failure");
+            return -1;
+        }
     }
     return rezSend;
 }
 
-ssize_t processSIZE_(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
+ssize_t processSIZE_(struct stGamerContext *gContext, char *bufer, ssize_t rezSend, char *answer)
 {
     //-> SIZE? m*** -> dde taille du labyrinthe
     //               SIZE! m h w*** -> h hauteur, w largeur
@@ -463,21 +480,24 @@ ssize_t processSIZE_(struct stCommunication *context, char *bufer, ssize_t rezSe
 }
 
 //-> LIST? m*** -> liste des joueurs inscrits à une partie
-ssize_t processLIST_(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
+ssize_t processLIST_(struct stGamerContext *gContext, char *bufer, ssize_t rezSend, char *answer)
 {
-    int fd2 = context->gamer->fd2;
-    char *iter = (char *)(bufer + LEN_KEYWORD + 1);
+    int fd2 = gContext->pGamer->fd2;
+    char *iter = (char *)bufer;
 
-    uint8_t m = 0;
-    memcpy(&m, iter, sizeof(m));
-    printf("asked game : %d\n", m);
+    uint8_t m = *(uint8_t *)iter;
+    int iFound = 0;
 
-    // find game m
-    struct element_t *gameEl = context->connection->games->first;
-    struct stGame *game = NULL;
+    pthread_mutex_lock(&gContext->pServerCtx->serverLock);
+
+    // find the game m
+    struct element_t *gameEl = gContext->pServerCtx->games->first;
+
+    printf("%s asked game : %d, games count %d\n", __FUNCTION__, m, gContext->pServerCtx->games->count);
+
     while (gameEl)
     {
-        game = (struct stGame *)(gameEl->data);
+        struct stGame *game = (struct stGame *)(gameEl->data);
 
         if (game->idGame == m)
         {
@@ -485,8 +505,8 @@ ssize_t processLIST_(struct stCommunication *context, char *bufer, ssize_t rezSe
             iter = answer;
             memcpy(iter, LIST_E, strlen(LIST_E));
             iter += strlen(LIST_E);
-            memcpy(iter, &m, sizeof(m));
-            iter += sizeof(m);
+            memcpy(iter, &game->idGame, sizeof(game->idGame));
+            iter += sizeof(game->idGame);
             memcpy(iter, WHITE, strlen(WHITE));
             iter += strlen(WHITE);
             memcpy(iter, &game->gamers->count, sizeof(game->gamers->count));
@@ -504,25 +524,20 @@ ssize_t processLIST_(struct stCommunication *context, char *bufer, ssize_t rezSe
                 return -1;
             }
 
-            // list all gamers
+            // specify all gamers
             struct element_t *gamerEl = game->gamers->first;
-            struct stGamer *gamer = NULL;
+
+            printf("%s games count has been sent, gamers %d\n", __FUNCTION__, game->gamers->count);
+
+            unsigned int count = 1;
             while (gamerEl)
             {
-                gamer = (struct stGamer *)(gamerEl->data);
+                struct stGamer *gamer = (struct stGamer *)(gamerEl->data);
 
-                // PLAYR id***-> s fois ce msg, id = id du joueur
-                iter = answer;
-                memcpy(iter, PLAYR, strlen(PLAYR));
-                iter += strlen(PLAYR);
-                memcpy(iter, WHITE, strlen(WHITE));
-                iter += strlen(WHITE);
-                memcpy(iter, &gamer->id, strlen(gamer->id)); // TODO gamer->id has to be sent in char
-                iter += strlen(gamer->id);
-                memcpy(iter, TCP_END, strlen(TCP_END));
-                iter += strlen(TCP_END);
+                // PLAYR id***-> s times this message, id = id of gamer
+                sprintf(answer, "%s %s%s", PLAYR, gamer->id, TCP_END);
 
-                answerLen = iter - answer;
+                printf("%s gamer %d - %s, TCP: {%s}\n", __FUNCTION__, count, gamer->id, answer);
 
                 rezSend = send(fd2, answer, strlen(answer), 0);
                 if (rezSend < strlen(answer))
@@ -530,46 +545,117 @@ ssize_t processLIST_(struct stCommunication *context, char *bufer, ssize_t rezSe
                     perror("PLAYR id*** sending failure");
                     return -1;
                 }
+                count++;
+                gamerEl = gamerEl->next;
+            }
+            iFound = 1;
+            break;
+        }
+        gameEl = gameEl->next;
+    }
 
+    pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
+
+    if (0 == iFound)
+    {
+        // DUNNO***
+        sprintf(answer, "%s%s%c", DUNNO, TCP_END, '\0');
+        rezSend = send(fd2, answer, strlen(answer), 0);
+        if (rezSend < strlen(answer))
+        {
+            perror("DUNNO sending failure");
+            return -1;
+        }
+    }
+    return rezSend;
+}
+
+//-> GAME?*** -> ask list of games non-launched
+ssize_t processGAME_(struct stGamerContext *gContext, ssize_t rezSend, char *answer)
+{
+    int fd2 = gContext->pGamer->fd2;
+
+    pthread_mutex_lock(&gContext->pServerCtx->serverLock);
+
+    // find game m
+    struct element_t *gameEl = gContext->pServerCtx->games->first;
+    struct stGame *game = NULL;
+
+    unsigned int count = 0;
+
+    while (gameEl)
+    {
+        game = (struct stGame *)(gameEl->data);
+
+        if (!game->isLaunched)
+        {
+            count++;
+            // compose LIST! m s*** -> s = nb de joueurs
+            char *iter = (char *)answer;
+
+            memcpy(iter, LIST_E, strlen(LIST_E));
+            iter += strlen(LIST_E);
+            memcpy(iter, &game->idGame, sizeof(game->idGame));
+            iter += sizeof(game->idGame);
+            memcpy(iter, WHITE, strlen(WHITE));
+            iter += strlen(WHITE);
+            memcpy(iter, &game->gamers->count, sizeof(game->gamers->count));
+            iter += sizeof(game->gamers->count);
+            memcpy(iter, TCP_END, strlen(TCP_END));
+            iter += strlen(TCP_END);
+
+            ssize_t answerLen = iter - answer;
+
+            // send
+            rezSend = send(fd2, answer, answerLen, 0);
+            if (rezSend < answerLen)
+            {
+                perror("LIST! sending failure");
+                return -1;
+            }
+
+            // specify all gamers
+            struct element_t *gamerEl = game->gamers->first;
+
+            while (gamerEl)
+            {
+                struct stGamer *gamer = (struct stGamer *)(gamerEl->data);
+
+                // PLAYR id***-> s times this message, id = id of gamer
+                sprintf(answer, "%s %s%s%c", PLAYR, gamer->id, TCP_END, '\0');
+
+                rezSend = send(fd2, answer, strlen(answer), 0);
+                if (rezSend < strlen(answer))
+                {
+                    perror("PLAYR id*** sending failure");
+                    return -1;
+                }
                 gamerEl = gamerEl->next;
             }
         }
         gameEl = gameEl->next;
     }
-    // send only if LIST! and PLAYR has not been sent:
+    pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
 
-    // DUNNO***
-    sprintf(answer, "%s%s%c", DUNNO, TCP_END, '\0');
-    rezSend = send(fd2, answer, strlen(answer), 0);
-    if (rezSend < strlen(answer))
+    if (0 == count)
     {
-        perror("DUNNO sending failure");
-        return -1;
+        // DUNNO***
+        sprintf(answer, "%s%s%c", DUNNO, TCP_END, '\0');
+        rezSend = send(fd2, answer, strlen(answer), 0);
+        if (rezSend < strlen(answer))
+        {
+            perror("DUNNO sending failure");
+            return -1;
+        }
     }
     return rezSend;
-}
-
-ssize_t processGAME_(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
-{
-    //-> GAME?*** -> dde liste des parties non commencées
-    //                LIST! m s*** -> s = nb de joueurs,
-    //                PLAYR id***-> s fois ce msg, id = id du joueur
-    //                DUNNO***
-    return 0;
-}
-
-ssize_t processGAMES(struct stCommunication *context, char *bufer, ssize_t rezSend, char *answer)
-{
-    //-> GAMES n*** -> n = nb de parties
-    //                OGAME m s***-> n fois ce msg
-    return 0;
 }
 
 //////////////////////////// Auxiliary functions /////////////////////////////////
 
 // create new game and fill folowing fields: idGame, port.
 // return this new game
-struct stGame *createGame(struct stCommunication *context, char *bufer)
+struct stGame *createGame(struct stGamerContext *gContext, char *bufer)
 {
     //create new stGame
     struct stGame *game = (struct stGame *)malloc(sizeof(struct stGame));
@@ -578,30 +664,88 @@ struct stGame *createGame(struct stCommunication *context, char *bufer)
         perror("malloc stGame");
         return NULL;
     }
+    memset(game, 0, sizeof(struct stGame));
+    game->isLaunched = 0; // is done abouve
+    pthread_mutex_init(&game->gameLock, NULL);
+
+    pthread_mutex_lock(&gContext->pServerCtx->serverLock);
+    game->idGame = ++gContext->pServerCtx->lastGameId;
+    pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
+
+    //create list of gamers and labirinth
     game->gamers = (struct listElements_t *)malloc(sizeof(struct listElements_t));
     game->labirinth = (struct stLabirinth *)malloc(sizeof(struct stLabirinth));
     if (!game->gamers || !game->labirinth)
     {
-        perror("malloc listElements_t in createGame");
+        perror("malloc gamers or labirinth in createGame");
         return NULL;
     }
+    memset(game->gamers, 0, sizeof(struct listElements_t));
+    memset(game->labirinth, 0, sizeof(struct stLabirinth));
 
-    context->connection->lastGameId++;
-    game->idGame = context->connection->lastGameId;
-
-    ////fill <port> field (bufer = "NEWPL id port***")
-    //char port[LEN_PORT];
-    //strncpy(port, bufer + LEN_KEYWORD + 1 + LEN_ID + 1, LEN_PORT);
-    //game->port = atoi(port);
+    //create list of ghosts and pointer to stGrid
+    game->labirinth->ghosts = (struct listElements_t *)malloc(sizeof(struct listElements_t));
+    game->labirinth->grid = (struct stCell *)malloc(sizeof(struct stCell));
+    if (!game->labirinth->ghosts || !game->labirinth->grid)
+    {
+        perror("malloc list of ghosts or grid in createGame");
+        return NULL;
+    }
+    memset(game->labirinth->ghosts, 0, sizeof(struct listElements_t));
+    memset(game->labirinth->grid, 0, sizeof(struct stCell));
+    pthread_mutex_init(&game->labirinth->labLock, NULL);
+    pthread_mutex_init(&game->labirinth->grid->cellLock, NULL);
 
     return game;
+}
+
+// free memory of struct game
+void freeGame(struct stGame *pGame)
+{
+    if (pGame)
+    {
+        // free gamers
+        struct element_t *gamerEl = pGame->gamers->first;
+        while (gamerEl)
+        {
+            struct stGamer *gamer = (struct stGamer *)(gamerEl->data);
+            pthread_mutex_destroy(&gamer->gamerLock);
+            FREE_MEM(gamer);
+            gamerEl = gamerEl->next;
+        }
+
+        FREE_MEM(pGame->gamers);
+
+        // free labirinth
+        if (pGame->labirinth)
+        {
+            struct element_t *ghostEl = pGame->labirinth->ghosts->first;
+            while (ghostEl)
+            {
+                struct stGhost *ghost = (struct stGhost *)(ghostEl->data);
+                pthread_mutex_destroy(&ghost->ghostLock);
+                FREE_MEM(ghost);
+                ghostEl = ghostEl->next;
+            }
+            pthread_mutex_destroy(&pGame->labirinth->labLock);
+            FREE_MEM(pGame->labirinth->ghosts);
+
+            FREE_MEM(pGame->labirinth->grid);
+            FREE_MEM(pGame->labirinth);
+        }
+
+        // free game
+        FREE_MEM(pGame);
+    }
 }
 
 // recieve till ending = "***" or "+++" will be recieved
 // return -1 if error, 0 if session has been closed, else the number of bytes received
 size_t recieveMessage(int fd, char *bufer, char *ending)
-{   
-    char* path = "/home/nata/Documents/L3_Reseaux/1_Projet/test.bin";
+{
+#if defined(PRINT_PROTOCOL)
+    char *path = "./test.bin";
+#endif
 
     size_t got = 0;
     ssize_t rezRecv = -1;
@@ -609,7 +753,7 @@ size_t recieveMessage(int fd, char *bufer, char *ending)
 
     while (got < BUF_SIZE)
     {
-        rezRecv = recv(fd, bufer + got, BUF_SIZE - got, 0);
+        rezRecv = recv(fd, bufer + got, /*BUF_SIZE - got*/ 1, 0);
         if (rezRecv < 0) //error
         {
             // termine with error
@@ -630,12 +774,14 @@ size_t recieveMessage(int fd, char *bufer, char *ending)
             if (0 == strncmp(bufer + got - szEnding, ending, szEnding))
             {
                 bufer[got] = 0;
+                printf("MSG ... {%s}\n", bufer);
+#if defined(PRINT_PROTOCOL)
 
-                int file = open(path, O_CREAT | O_RDWR | O_APPEND ,
+                int file = open(path, O_CREAT | O_RDWR | O_APPEND,
                                 S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH);
                 if (file < 0)
                 {
-                    perror("open failure");                    
+                    perror("open failure");
                 }
 
                 ssize_t r = write(file, bufer, got);
@@ -643,12 +789,152 @@ size_t recieveMessage(int fd, char *bufer, char *ending)
                 {
                     perror("write failure");
                 }
-                
+#endif
                 CLOSE(file);
-                return got;                    
-            }                     
+                return got;
+            }
         }
     }
+
+    perror("recieved more than buffer");
+
     return -1;
 }
 
+// create new gamer
+struct stGamer *createGamer(int32_t socket, uint32_t uIpv4)
+{
+    struct stGamer *newGamer = (struct stGamer *)malloc(sizeof(struct stGamer));
+    if (!newGamer)
+    {
+        perror("malloc gamer failure");
+        return NULL;
+    }
+
+    memset(newGamer, 0, sizeof(struct stGamer));
+    newGamer->fd2 = socket;
+    newGamer->ipAddress = uIpv4; // TODO check that need htons
+    pthread_mutex_init(&newGamer->gamerLock, NULL);
+
+    return newGamer;
+}
+
+// free memory of strauct gamer
+void freeGamer(struct stGamer *pGamer)
+{
+    if (pGamer)
+    {
+        pthread_mutex_destroy(&pGamer->gamerLock);
+        CLOSE(pGamer->fd2);
+        FREE_MEM(pGamer);
+    }
+}
+
+// add gamer to list of gamers
+void addGamer(struct stGamerContext *gContext, struct stGame *game, struct stGamer *gamer)
+{
+    pthread_mutex_lock(&gContext->pServerCtx->serverLock);
+    pushLast(game->gamers, gContext->pGamer);
+    pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
+}
+
+// remove gamer from list of gamers
+void removeGamer(struct stGamerContext *gContext, struct stGame *game, struct stGamer *gamer)
+{
+    if ((!gContext) || (!game) || (!gamer))
+    {
+        perror("removeGamer() args error!");
+        return;
+    }
+
+    pthread_mutex_lock(&gContext->pServerCtx->serverLock);
+    struct element_t *pIter = game->gamers->first;
+    int iFound = 0;
+    while (pIter)
+    {
+        if (((struct stGamer *)pIter->data) == gamer)
+        {
+            removeEl(game->gamers, pIter);
+            iFound = 1;
+            break;
+        }
+        pIter = pIter->next;
+    }
+    pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
+
+    if (!iFound)
+    {
+        perror("removeGamer() failed, gamer not found!");
+    }
+}
+
+// add game to list of games
+void addGame(struct stGamerContext *gContext, struct stGame *newGame)
+{
+    pthread_mutex_lock(&gContext->pServerCtx->serverLock);
+    pushLast(gContext->pServerCtx->games, newGame);
+    pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
+}
+
+// remove game from list of games
+void removeGame(struct stGamerContext *gContext, struct stGame *game)
+{
+    if ((!gContext) || (!game))
+    {
+        perror("removeGame() args error!");
+        return;
+    }
+
+    pthread_mutex_lock(&gContext->pServerCtx->serverLock);
+
+    struct element_t *pIter = gContext->pServerCtx->games->first;
+    int iFound = 0;
+    while (pIter)
+    {
+        if (((struct stGame *)pIter->data) == game)
+        {
+            removeEl(gContext->pServerCtx->games, pIter);
+            iFound = 1;
+            break;
+        }
+        pIter = pIter->next;
+    }
+
+    pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
+
+    if (!iFound)
+    {
+        perror("removeGame() failed, game not found!");
+    }
+}
+
+void printGamers(struct stGamerContext *gContext, const char *pCaller)
+{
+    if (!gContext)
+    {
+        perror("printGamers() args error!");
+        return;
+    }
+
+    pthread_mutex_lock(&gContext->pServerCtx->serverLock);
+
+    printf("{%s} Gamers++++++++++++++++++\n", pCaller);
+
+    struct element_t *pIterGame = gContext->pServerCtx->games->first;
+    while (pIterGame)
+    {
+        struct stGame *pGame = (struct stGame *)pIterGame->data;
+        struct element_t *pIterGameR = pGame->gamers->first;
+        while (pIterGameR)
+        {
+            struct stGamer *pGameR = (struct stGamer *)pIterGameR->data;
+            printf("Game %d, gamer {%s}\n", (int)pGame->idGame, pGameR->id);
+            pIterGameR = pIterGameR->next;
+        }
+
+        pIterGame = pIterGame->next;
+    }
+    printf("{%s} Gamers----------------\n", pCaller);
+
+    pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
+}

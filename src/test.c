@@ -3,31 +3,14 @@
 #include "server_aux_functions.h"
 #include <fcntl.h>
 
-#define PRINT_PROTOCOL
-
-
+//#define PRINT_PROTOCOL
 
 // Usage:
 //          ./test NEWPL <name> <port>
 //          ./test REGIS <name> <port>
 //          ./test UNREG <name>
-
-//void to_File(int fd, char *buf)
-//{
-//    int file = open("/home/nata/Documents/L3_Reseaux/1_Projet/test.bin", O_RDWR, O_APPEND,
-//                    S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH);
-//    if (file < 0)
-//    {
-//        perror("open failure");
-//        CLOSE(fd);
-//    }
-//    int r = write(file, buf, strlen(buf));
-//    if (r < strlen(buf))
-//    {
-//        perror("write failure");
-//    }
-//    CLOSE(file);
-//}
+//          ./test LIST?
+//          ./test GAME?
 
 int main(int argc, char **argv)
 {   
@@ -41,7 +24,7 @@ int main(int argc, char **argv)
     char *keyWord = argv[1];
     char *name = argv[2];
     char *port = argv[3];
-    uint8_t m = 1;
+    uint8_t m = 1;                      // sequence number of game TO CHANGE
 
     printf("keyWord %s - name %s - port %s - game %d\n", keyWord, name, port, m);
 
@@ -85,7 +68,7 @@ int main(int argc, char **argv)
     }
     printf("\n");
 #endif
-    
+    int CCCCC = 1;
 
     if (0 == strcmp(keyWord, NEWPL))
     {
@@ -137,6 +120,7 @@ int main(int argc, char **argv)
     else if (0 == strcmp(keyWord, UNREG))
     {
         // UNREG m***
+        iter = answer;
 
         memcpy(iter, keyWord, strlen(keyWord));
         iter += strlen(keyWord);
@@ -166,19 +150,57 @@ int main(int argc, char **argv)
     {
     }
 
-    else if (0 == strcmp(keyWord, "LIST?"))
+    else if (0 == strcmp(keyWord, LIST_Q))
     {
+        CCCCC = 5;
+        // LIST? m***
+        iter = answer;
+
+        memcpy(iter, keyWord, strlen(keyWord));
+        iter += strlen(keyWord);
+
+        memcpy(iter, WHITE, strlen(WHITE));
+        iter += strlen(WHITE);
+
+        memcpy(iter, &m, sizeof(m));
+        iter += sizeof(m);
+
+        memcpy(iter, TCP_END, strlen(TCP_END));
+        iter += strlen(TCP_END);
+
+        ssize_t answerLen = iter - answer;
+
+        ssize_t rezSend = send(fd, answer, answerLen, 0);
+        if (rezSend < answerLen)
+        {
+            perror("LIST? sending failure");
+            rez = EXIT_FAILURE;
+            CLOSE(fd);
+            return rez;
+        }
     }
 
-    else if (0 == strcmp(keyWord, "GAME?"))
+    else if (0 == strcmp(keyWord, GAME_Q))
     {
+        // GAME?***
+        sprintf(answer, "%s%s%c", keyWord, TCP_END, '\0');
+
+        ssize_t rezSend = send(fd, answer, strlen(answer), 0);
+        if (rezSend < strlen(answer))
+        {
+            perror("GAME? sending failure");
+            rez = EXIT_FAILURE;
+            CLOSE(fd);
+            return rez;
+        }
     }
 
-    else if (0 == strcmp(keyWord, "GAMES"))
+    
+    for (int i =0; i < CCCCC; i++)
     {
+        printf("MSG %d\n", i);
+        recieveMessage(fd, buf, TCP_END);   
     }
-
-    recieveMessage(fd, buf, TCP_END);   
 
     CLOSE(fd);
     return 0;

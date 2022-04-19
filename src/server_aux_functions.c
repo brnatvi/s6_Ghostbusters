@@ -186,7 +186,7 @@ ssize_t processINFO(struct stGamerContext *gContext, ssize_t rezSend, char *answ
     int fd2 = gContext->pGamer->fd2;
 
     pthread_mutex_lock(&gContext->pServerCtx->serverLock);
-    unsigned int n = gContext->pServerCtx->games->count;
+    uint8_t n = gContext->pServerCtx->games->count;
     pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
 
     //send info about all games

@@ -1,6 +1,7 @@
 #ifndef LIST_H
 #define LIST_H
 
+#include <stdint.h>
 struct element_t
 {
     void*              data;
@@ -12,7 +13,7 @@ struct listElements_t
 {
     struct element_t*   first;
     struct element_t*   last;
-    unsigned int        count;
+    uint8_t             count;
 };
 
 

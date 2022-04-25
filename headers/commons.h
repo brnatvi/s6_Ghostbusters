@@ -79,6 +79,7 @@ struct stServerContext                        //Created by: server main
     struct listElements_t* games;             //          : all protocol functions (thread comm)
     uint16_t               lastGameId;        //          : changed by createGame (thread comm)    
     pthread_mutex_t        serverLock;
+    struct listElements_t* users;
 };
 
 struct stGamerContext
@@ -90,6 +91,24 @@ struct stGamerContext
 ////////////////////////////////// Functions ////////////////////////////////////
 int createTcpConnection(struct stServerContext *context, int port);
 int acceptAndCommunication(struct stServerContext *context);
+
+
+//////////////////////////// Aux functions /////////////////////////////////
+
+size_t recieveMessage(int fd, char *bufer, char* ending);
+struct stGame *createGame(struct stGamerContext *gContext, char *bufer);
+void freeGame(struct stGame *pGame);
+
+struct stGamer *createGamer(int32_t iSocket, uint32_t uIpv4);
+void freeGamer(struct stGamer *pGamer);
+
+void addGamer(struct stGamerContext *gContext, struct stGame *game, struct stGamer *gamer);
+void removeGamer(struct stGamerContext *gContext, struct stGame *game, struct stGamer *gamer);
+void addGame(struct stGamerContext *gContext, struct stGame *newGame);
+void removeGame(struct stGamerContext *gContext, struct stGame *game);
+
+void printGamers(struct stGamerContext *gContext, const char* pCaller);
+
 
 ////////////////////////////////// Macros' //////////////////////////////////////
 

@@ -71,13 +71,18 @@ int acceptAndCommunication(struct stServerContext *context)
 
         pGamerContext->pServerCtx = context;
         pGamerContext->pGamer = createGamer(fd2, atoi(inet_ntoa(context->sockAddress.sin_addr))); // TODO check that need htons
-
+        
         if (!pGamerContext->pGamer)
         {
             perror("malloc gamer failure");
             rez = EXIT_FAILURE;
             goto lExit;
         }
+
+        // add to list user's list
+        pthread_mutex_lock(&pGamerContext->pServerCtx->serverLock);        
+        pushLast(pGamerContext->pServerCtx->users, pGamerContext->pGamer);
+        pthread_mutex_unlock(&pGamerContext->pServerCtx->serverLock);
 
         // create thread of gamer for communication
         int phRez = pthread_create(&th, NULL, communication, (void *)pGamerContext);
@@ -468,15 +473,18 @@ ssize_t processUNREG(struct stGamerContext *gContext, char *bufer, ssize_t rezSe
         {
             if (0 == game->gamers->count)
             {
+                struct stGame *pDelGame = (struct stGame *)gameEl->data;
                 rezRemove = removeEl(gContext->pServerCtx->games, gameEl);
                 if (rezRemove < 0)
                 {
                     perror("remove game from list of games failure");
                 }
+                // free memory
+                freeGame(pDelGame);
             }
         }
     }
-    
+
     pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
     if (0 == isFound)
     {
@@ -687,7 +695,9 @@ struct stGame *createGame(struct stGamerContext *gContext, char *bufer)
     }
     memset(game, 0, sizeof(struct stGame));
     game->isLaunched = 0; // is done abouve
-    pthread_mutex_init(&game->gameLock, NULL);
+    pthread_mutexattr_t Attr;
+    pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&game->gameLock, &Attr);
 
     pthread_mutex_lock(&gContext->pServerCtx->serverLock);
     game->idGame = ++gContext->pServerCtx->lastGameId;
@@ -714,8 +724,10 @@ struct stGame *createGame(struct stGamerContext *gContext, char *bufer)
     }
     memset(game->labirinth->ghosts, 0, sizeof(struct listElements_t));
     memset(game->labirinth->grid, 0, sizeof(struct stCell));
-    pthread_mutex_init(&game->labirinth->labLock, NULL);
-    pthread_mutex_init(&game->labirinth->grid->cellLock, NULL);
+    
+    pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&game->labirinth->labLock, &Attr);
+    pthread_mutex_init(&game->labirinth->grid->cellLock, &Attr);
 
     return game;
 }
@@ -724,15 +736,20 @@ struct stGame *createGame(struct stGamerContext *gContext, char *bufer)
 void freeGame(struct stGame *pGame)
 {
     if (pGame)
-    {
+    {               
+        //TODO: how to remove gamer memory? can we store pointer to gamer somewhere else?
+        
+
+        pthread_mutex_lock(&pGame->gameLock); 
+
         // free gamers
-        struct element_t *gamerEl = pGame->gamers->first;
-        while (gamerEl)
+        while (pGame->gamers->first)
         {
-            struct stGamer *gamer = (struct stGamer *)(gamerEl->data);
-            pthread_mutex_destroy(&gamer->gamerLock);
-            FREE_MEM(gamer);
-            gamerEl = gamerEl->next;
+            //struct stGamer *gamer = (struct stGamer *)(pGame->gamers->first->data);
+           // pthread_mutex_destroy(&gamer->gamerLock);
+           // FREE_MEM(gamer); 
+
+            removeEl(pGame->gamers, pGame->gamers->first);
         }
 
         FREE_MEM(pGame->gamers);
@@ -740,23 +757,22 @@ void freeGame(struct stGame *pGame)
         // free labirinth
         if (pGame->labirinth)
         {
-            struct element_t *ghostEl = pGame->labirinth->ghosts->first;
-            while (ghostEl)
+            while (pGame->labirinth->ghosts->first)
             {
-                struct stGhost *ghost = (struct stGhost *)(ghostEl->data);
+                struct stGhost *ghost = (struct stGhost *)(pGame->labirinth->ghosts->first->data);
                 pthread_mutex_destroy(&ghost->ghostLock);
                 FREE_MEM(ghost);
-                ghostEl = ghostEl->next;
+                removeEl(pGame->labirinth->ghosts, pGame->labirinth->ghosts->first);
             }
             pthread_mutex_destroy(&pGame->labirinth->labLock);
             FREE_MEM(pGame->labirinth->ghosts);
-
             FREE_MEM(pGame->labirinth->grid);
             FREE_MEM(pGame->labirinth);
         }
 
         // free game
-        FREE_MEM(pGame);
+        pthread_mutex_unlock(&pGame->gameLock);
+        FREE_MEM(pGame);        
     }
 }
 
@@ -835,7 +851,9 @@ struct stGamer *createGamer(int32_t socket, uint32_t uIpv4)
     memset(newGamer, 0, sizeof(struct stGamer));
     newGamer->fd2 = socket;
     newGamer->ipAddress = uIpv4; // TODO check that need htons
-    pthread_mutex_init(&newGamer->gamerLock, NULL);
+    pthread_mutexattr_t Attr;
+    pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&newGamer->gamerLock, &Attr);
 
     return newGamer;
 }

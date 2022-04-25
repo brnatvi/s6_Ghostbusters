@@ -103,6 +103,14 @@ class Client {
             System.out.println(entete +" "+ new String(tail));
         }
         
+        else if(entete.equals("LIST!")){
+            System.out.println("LIST! "+String.valueOf((int) info[0]) +" "+String.valueOf((int) info[2])+"***");
+            byte[][]l = parseUntilStars("PLAYR", msg.substring(tail.length+5).getBytes(), (int)info[2]);
+            for(byte[] k: l){
+                System.out.println(new String(k));
+            }
+        }
+        
     }
 
         //treat msg with one option which is written in one byte {GAMES, REGOK, UNROK}
@@ -126,6 +134,16 @@ class Client {
         }
         else if(msg.substring(0,5).equals("NEWPL")){
             byte[]res = sendNewpl(msg);
+            out.print(new String(res));
+            out.flush();
+        }
+        else if(msg.substring(0,5).equals("UNREG")){
+            byte[]res = sendUnreg(msg);
+            out.print(new String(res));
+            out.flush();
+        }
+        else if(msg.substring(0,5).equals("LIST?") || msg.substring(0,5).equals("SIZE?")){
+            byte[]res = sendList(msg);
             out.print(new String(res));
             out.flush();
         }
@@ -158,6 +176,25 @@ class Client {
     }
 
     public static byte[] sendUnreg(String msg){
+        byte[] entete = (msg.substring(0,6)).getBytes();
+        int m = Integer.parseInt(msg.substring(6, msg.length()-3));
+        byte[] nb = new byte[1];
+        nb[0] = (byte)((m >> 0) & 0xff);
+        System.out.println(m);
+
+        byte[] tcpEnd = (msg.substring(msg.length()-3)).getBytes();
+        byte[] toSend = new byte[entete.length + nb.length + 3];
+        System.arraycopy(entete, 0 ,toSend, 0, entete.length);
+        System.arraycopy(nb, 0, toSend, entete.length, 1);
+        System.arraycopy(tcpEnd, 0, toSend, entete.length+1, 3);
+        for(byte b: toSend){
+            System.out.print(b+" ");
+        }
+        System.out.println();
+        return toSend;
+    }
+
+    public static byte[] sendList(String msg){
         byte[] entete = (msg.substring(0,6)).getBytes();
         int m = Integer.parseInt(msg.substring(6, msg.length()-3));
         byte[] nb = new byte[1];

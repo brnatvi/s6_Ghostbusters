@@ -400,23 +400,22 @@ ssize_t processREGIS(struct stGamerContext *gContext, char *bufer, ssize_t rezSe
 //-> UNREG m*** -> unsubscribe from game m
 ssize_t processUNREG(struct stGamerContext *gContext, char *bufer, ssize_t rezSend, char *answer)
 {
+    int rezRemove = 0;
     int fd2 = gContext->pGamer->fd2;
     char *iter = (char *)bufer;
 
     uint8_t m = 0;
     memcpy(&m, iter, sizeof(m));
-    // printf("asked game : %d\n", m);
+    printf("UNREG  asked game : %d\n", m);
 
     // find game m
     pthread_mutex_lock(&gContext->pServerCtx->serverLock);
 
     struct element_t *gameEl = gContext->pServerCtx->games->first;
     unsigned int isFound = 0;
-
-    while (gameEl)
+    while ((gameEl) && (!isFound))
     {
         struct stGame *game = (struct stGame *)(gameEl->data);
-
         if (game->idGame == m)
         {
             // find this gamer
@@ -424,12 +423,16 @@ ssize_t processUNREG(struct stGamerContext *gContext, char *bufer, ssize_t rezSe
             struct stGamer *gamer = NULL;
             while (gamerEl)
             {
-                gamer = (struct stGamer *)(gamerEl->data);
-                if (gamer->id == gContext->pGamer->id)
-                {
-                    removeEl(game->gamers, gamerEl->data);
-                    FREE_MEM(gamer);
 
+                gamer = (struct stGamer *)(gamerEl->data);
+                if (0 == strcmp(gamer->id, gContext->pGamer->id))
+                {
+                    rezRemove = removeEl(game->gamers, gamerEl);
+                    if (rezRemove < 0)
+                    {
+                        perror("remove gamer from list of gamers failure");
+                    }
+                    printf("result of remove from gamers = %d", rezRemove);
                     // UNROK m*** -> unsubscribe OK
                     iter = answer;
 
@@ -443,19 +446,37 @@ ssize_t processUNREG(struct stGamerContext *gContext, char *bufer, ssize_t rezSe
                     iter += strlen(TCP_END);
 
                     ssize_t answerLen = iter - answer;
-
                     rezSend = send(fd2, answer, answerLen, 0);
                     if (rezSend < answerLen)
                     {
+                        printf("8\n");
                         perror("UNROK sending failure");
                         return -1;
                     }
+
+                    isFound = 1;
+                    break;
                 }
                 gamerEl = gamerEl->next;
             }
         }
-        gameEl = gameEl->next;
+        if (!isFound)
+        {
+            gameEl = gameEl->next;
+        }
+        else // gamer was deleted and we need to check if there arent any more gamers for this game
+        {
+            if (0 == game->gamers->count)
+            {
+                rezRemove = removeEl(gContext->pServerCtx->games, gameEl);
+                if (rezRemove < 0)
+                {
+                    perror("remove game from list of games failure");
+                }
+            }
+        }
     }
+    
     pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
     if (0 == isFound)
     {
@@ -486,7 +507,7 @@ ssize_t processLIST_(struct stGamerContext *gContext, char *bufer, ssize_t rezSe
     char *iter = (char *)bufer;
 
     uint8_t m = *(uint8_t *)iter;
-    int iFound = 0;
+    int isFound = 0;
 
     pthread_mutex_lock(&gContext->pServerCtx->serverLock);
 
@@ -495,7 +516,7 @@ ssize_t processLIST_(struct stGamerContext *gContext, char *bufer, ssize_t rezSe
 
     printf("%s asked game : %d, games count %d\n", __FUNCTION__, m, gContext->pServerCtx->games->count);
 
-    while (gameEl)
+    while ((gameEl) && (!isFound))
     {
         struct stGame *game = (struct stGame *)(gameEl->data);
 
@@ -548,7 +569,7 @@ ssize_t processLIST_(struct stGamerContext *gContext, char *bufer, ssize_t rezSe
                 count++;
                 gamerEl = gamerEl->next;
             }
-            iFound = 1;
+            isFound = 1;
             break;
         }
         gameEl = gameEl->next;
@@ -556,7 +577,7 @@ ssize_t processLIST_(struct stGamerContext *gContext, char *bufer, ssize_t rezSe
 
     pthread_mutex_unlock(&gContext->pServerCtx->serverLock);
 
-    if (0 == iFound)
+    if (0 == isFound)
     {
         // DUNNO***
         sprintf(answer, "%s%s%c", DUNNO, TCP_END, '\0');

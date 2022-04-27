@@ -2,8 +2,6 @@
 #include "commons.h"
 #include <signal.h>
 
-// IMPORTANT!!! to test with nc dont use <enter> to send, but <ctrl d> (probleme of \0 ending)
-
 int main(int argc, char **argv)
 {
     sigaction(SIGPIPE, &(struct sigaction){{SIG_IGN}}, NULL);
@@ -33,7 +31,9 @@ int main(int argc, char **argv)
     context->sockAddress.sin_port = htons(port);              // TODO check that need htons
     context->sockAddress.sin_addr.s_addr = htonl(INADDR_ANY); // TODO check that need htons
 
-    pthread_mutex_init(&context->serverLock, NULL);
+    pthread_mutexattr_t Attr;
+    pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&context->serverLock, &Attr);
 
     context->games = (struct listElements_t *)malloc(sizeof(struct listElements_t));
     if (!context->games)

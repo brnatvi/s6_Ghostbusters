@@ -34,7 +34,6 @@ struct stGhost
     uint16_t            id;                                            // id of ghost
     uint16_t            x;                         //char[3];          // position x
     uint16_t            y;                         //char[3];          // position y
-    pthread_mutex_t     ghostLock; 
 };
 
 enum eCellType
@@ -49,7 +48,6 @@ struct stCell
     enum eCellType      eType;
     struct stGamer*     gamer;
     struct stGhost*     ghost;    
-    pthread_mutex_t     cellLock; 
 };
 
 struct stLabirinth                  
@@ -59,7 +57,6 @@ struct stLabirinth
     uint8_t                ghostCount;                            //number of ghosts
     struct listElements_t* ghosts;
     struct stCell*         grid;                                  //labirynth  
-    pthread_mutex_t        labLock;   
 };
 
 struct stGame
@@ -78,6 +75,7 @@ struct stServerContext                        //Created by: server main
     struct sockaddr_in     sockAddress;       //          : communication (thread comm)
     struct listElements_t* games;             //          : all protocol functions (thread comm)
     uint16_t               lastGameId;        //          : changed by createGame (thread comm)    
+    uint8_t                countStarted;
     pthread_mutex_t        serverLock;
     struct listElements_t* users;
 };

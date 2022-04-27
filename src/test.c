@@ -183,7 +183,7 @@ int main(int argc, char **argv)
     else if (0 == strcmp(keyWord, GAME_Q))
     {
         // GAME?***
-        sprintf(answer, "%s%s%c", keyWord, TCP_END, '\0');
+        sprintf(answer, "%s%s", keyWord, TCP_END);
 
         ssize_t rezSend = send(fd, answer, strlen(answer), 0);
         if (rezSend < strlen(answer))
@@ -198,10 +198,11 @@ int main(int argc, char **argv)
     
     for (int i =0; i < CCCCC; i++)
     {
-        printf("MSG %d\n", i);
+        printf("%s MSG %d/%d\n", __FUNCTION__, i, CCCCC);
         recieveMessage(fd, buf, TCP_END);   
     }
-
+            
+    shutdown(fd, SHUT_RDWR);
     CLOSE(fd);
     return 0;
 }

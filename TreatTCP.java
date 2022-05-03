@@ -1,14 +1,18 @@
-import java.io.*;
-import java.net.*;
-import java.nio.*;
 import java.util.Arrays;
-import java.util.Scanner;
 
 public class TreatTCP {
 
-    public static byte[] conditionMet(byte[]tail, int n1){
-        if(tail[n1] == 42 && tail[n1+1] == 42 && tail[n1+2] == 42){
-            return (Arrays.copyOfRange(tail, 0, n1+3));
+    private static int LEN_END = 3;
+    private static int LEN_WHITE = 1;
+    private static int LEN_ID = 8;
+    private static int SZ_BYTE = 1;
+    private static int STAR = 42;
+    private static String tcpEnd = "***";
+
+    public static byte[] conditionMet(byte[] tail, int n1){
+        if(tail[n1] == STAR && tail[n1+1] == STAR && tail[n1+2] == STAR){
+            System.out.println("met?Met!");
+            return (Arrays.copyOfRange(tail, 0, n1 + LEN_END));
         }
         return null;
     }
@@ -16,20 +20,20 @@ public class TreatTCP {
     //parser jusqu'à trouver '***' return byte array
     public static byte[] parseUntilStars(String entete, byte[]tail){
         if(entete.equals("GAMES") || entete.equals("REGOK") || entete.equals("UNROK")){
-            return conditionMet(tail, 2); 
+            return conditionMet(tail, LEN_WHITE + SZ_BYTE);
         }
         else if(entete.equals("REGNO")){
             return conditionMet(tail, 0);
         }
         //full message
         else if(entete.equals("OGAME")){
-            return conditionMet(tail, 9);
+            return conditionMet(tail, LEN_WHITE + LEN_ID);
         }
         else if(entete.equals("LIST!")){
-            return conditionMet(tail, 3);
+            return conditionMet(tail, LEN_WHITE + SZ_BYTE);
         }
         else if(entete.equals("PLAYR")){
-            return conditionMet(tail, 14);
+            return conditionMet(tail, LEN_WHITE + LEN_ID);
         }
         return null;
     }
@@ -51,7 +55,7 @@ public class TreatTCP {
     public static void treatMess(String msg){
         String entete = msg.substring(0,5);
         byte[] tail = parseUntilStars(entete, (msg.substring(5)).getBytes());
-        String tcpEnd = "***";
+        //String tcpEnd = "***";
         int n = 0;
         System.out.println(entete);
         switch(entete){
@@ -74,14 +78,18 @@ public class TreatTCP {
                 }
                 break;
             case "LIST!":
+                System.out.println("a");
                 System.out.println(entete+" "+treatInfoOneByte(tail[0])+" "+treatInfoOneByte(tail[2])+tcpEnd); //tail[1] et tail[3]
+                System.out.println("b");
                 n = tail[2];
+                System.out.println("c");
                 if(n != 0){
                     byte[][]tmp = parseUntilStars("PLAYR", msg.substring(tail.length+5).getBytes(), n, 17);
                     for(byte[] t: tmp){
                         System.out.println(new String(t));
                     }
-                }        
+                }
+                System.out.println("d");
         }
         
     }

@@ -33,12 +33,32 @@ class Client {
 
     //Lire buffer
     public String read(BufferedReader in, char[] buf, int offset, int len){
+        int count = 0;
         try{
-            in.read(buf, offset, len);
+            count = in.read(buf, offset, len);
         }
         catch(IOException e){
             System.out.println(e);
         }
+
+
+     //////////////////////////// PRINTS FOR DEBUG //////////////////////////////////////////
+     //////////////////////////// print version 1 //////////////////////////////////////////
+
+        System.out.println("print version 1 as hex + char : ");
+        for (int i = 0; i < count; i++)
+        {
+            //String s = String.format("%1$c (%1$x)", buf[i]);
+            String s = String.format("0x%02X(%c) ", (int)buf[i], (int)buf[i]);
+            System.out.print(s);
+        }
+        System.out.println("");
+
+    //////////////////////////// print version 2 /////////////////////////////////////////////
+        System.out.println("print version 2 as char: ");
+        System.out.println(Arrays.toString(buf));
+
+    //////////////////////////// END PRINTS FOR DEBUG ///////////////////////////////////////
         return (new String(buf)); 
     }
 

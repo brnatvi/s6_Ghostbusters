@@ -6,6 +6,8 @@ import java.util.Scanner;
 
 public class SendTCP {
 
+    private static int STAR = 42;
+
     // n, m, s
     public static byte[] sendOneInfoByte(int info){
         byte[] nb = new byte[1];

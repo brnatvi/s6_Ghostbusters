@@ -3,8 +3,6 @@
 #include "server_aux_functions.h"
 #include <fcntl.h>
 
-//#define PRINT_PROTOCOL
-
 // Usage:
 //          ./test NEWPL <name> <port>
 //          ./test REGIS <name> <port>
@@ -12,194 +10,209 @@
 //          ./test LIST?
 //          ./test GAME?
 
+static uint32_t uGameId = 0;
+
+int receiveMessages(int iSocket)
+{
+    struct stRawMessage stMsg;
+    struct stIpBuffer   stTcpBuf;
+
+    uint32_t uExpectedMsg = 1;
+    while (uExpectedMsg)
+    {
+        stMsg.msg = eUdpMsgMaxValue;
+        int iMsgRes = tcpGetMsg(iSocket, &stTcpBuf, &stMsg);
+
+        if (iMsgRes < 0)
+        {
+            fprintf(stderr, "{%s} Socket/Communication error, close connection!\n", __FUNCTION__);
+            return -1;
+        }
+        else if (iMsgRes == 0)
+        {
+            continue;
+        }
+
+        uExpectedMsg--;
+        if (stMsg.msg == eTcpMsgGAMES)
+        {
+            if (1 != scanMsg(stMsg.msgRaw, eTcpMsgGAMES, &uExpectedMsg))
+            {
+                fprintf(stderr, "{%s} Unexpected message eTcpMsgGAMES!\n", __FUNCTION__);
+                return -1;
+            }
+
+            printf(">>Server is reprorting %u games\n", uExpectedMsg);
+        }
+        else if (stMsg.msg == eTcpMsgOGAME)
+        {
+            uint32_t m,s;
+            if (2 != scanMsg(stMsg.msgRaw, eTcpMsgOGAME, &m, &s))
+            {
+                fprintf(stderr, "{%s} Unexpected message eTcpMsgOGAME!\n", __FUNCTION__);
+                return -1;
+            }
+            printf(">> * Game %u with %u players\n", m, s);
+        }
+        else if (stMsg.msg == eTcpMsgREGOK)
+        {
+            uint32_t m;
+            if (1 != scanMsg(stMsg.msgRaw, eTcpMsgREGOK, &m))
+            {
+                fprintf(stderr, "{%s} Unexpected message eTcpMsgREGOK!\n", __FUNCTION__);
+                return -1;
+            }
+            printf(">>REGOK %u\n", m);
+            uGameId = m;
+        }
+        else if (stMsg.msg == eTcpMsgREGNO)
+        {
+            printf(">>REGNO\n");
+        }
+        else if (stMsg.msg == eTcpMsgDUNNO)
+        {
+            printf(">>DUNNO\n");
+        }
+        else if (stMsg.msg == eTcpMsgLISTA)
+        {
+            uint32_t m;
+            uint32_t s;
+            if (2 != scanMsg(stMsg.msgRaw, eTcpMsgLISTA, &m, &s))
+            {
+                fprintf(stderr, "{%s} Unexpected message eTcpMsgLISTA!\n", __FUNCTION__);
+                return -1;
+            }
+            printf(">>LIST! game ID:%u players: %u\n", m, s);
+            uExpectedMsg = s;
+        }
+        else if (stMsg.msg == eTcpMsgPLAYR)
+        {
+            char pId[USER_ID_LEN];
+            if (1 != scanMsg(stMsg.msgRaw, eTcpMsgPLAYR, pId))
+            {
+                fprintf(stderr, "{%s} Unexpected message eTcpMsgPLAYR!\n", __FUNCTION__);
+                return -1;
+            }
+            printf(">>PlAYR ID:%s\n", pId);
+        }
+    }
+
+    return 0;
+}
+
+
 int main(int argc, char **argv)
 {   
-
-    char answer[BUF_SIZE];
-    char *iter = (char *)answer;
-
-    char buf[BUF_SIZE];
-    int rez = EXIT_SUCCESS;
-
-    char *keyWord = argv[1];
-    char *name = argv[2];
-    char *port = argv[3];
-    uint8_t m = 1;                      // sequence number of game TO CHANGE
-
-    printf("keyWord %s - name %s - port %s - game %d\n", keyWord, name, port, m);
-
-    int fd = 0;
-    const char *adressString = "127.0.0.1";
-
-    struct sockaddr_in socAddress;
+    struct sockaddr_in  socAddress;
+    int                 fd = 0;
+    
     memset(&socAddress, 0, sizeof(struct sockaddr_in));
-
     //convert IP text addr to binary form
-    socAddress.sin_family = AF_INET;
-    socAddress.sin_port = htons(4242);
-    socAddress.sin_addr.s_addr = inet_addr(adressString);
+    socAddress.sin_family      = AF_INET;
+    socAddress.sin_port        = htons(4242);
+    socAddress.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     //create a connection using IP add binary form and connect
     fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0)
     {
         perror("cannot create socket");
-        rez = EXIT_FAILURE;
-        return rez;
+        return 1;
     }
 
     //connect
     if (connect(fd, (struct sockaddr *)&socAddress, sizeof(struct sockaddr_in)))
     {
         perror("connection failure");
-        rez = EXIT_FAILURE;
         CLOSE(fd);
-        return rez;
+        return 1;
     }
 
-    ssize_t len = recieveMessage(fd, buf, TCP_END);
+    argc--; argv++; //skip process name
 
-#if defined(PRINT_PROTOCOL)
-    iter = buf;
-    for (ssize_t i = 0; i < len; i++)
+    if (0 != receiveMessages(fd))
     {
-        printf("0x%02X(%c) ", *iter, *iter ? *iter : '0');
-        iter++;
+        CLOSE(fd);
+        return 1;
     }
-    printf("\n");
-#endif
-    int CCCCC = 1;
 
-    if (0 == strcmp(keyWord, NEWPL))
+    while (argc--)
     {
-        // NEWPL id port***
-
-        sprintf(answer, "%s %s %s%s%c", NEWPL, name, port, TCP_END, '\0');
-        printf("client has been send : %s\n", answer);
-        //fflush(stdout);
-
-        ssize_t rezSend = send(fd, answer, strlen(answer), 0);
-        if (rezSend < strlen(answer))
+        const struct stMsgDesc *pMsgDesc = getMsgDescriptionByPrefix(*argv);
+        if (!pMsgDesc)
         {
-            perror("NEWPL sending failure");
-            rez = EXIT_FAILURE;
-            CLOSE(fd);
-            return rez;
+            fprintf(stderr, "{%s} Unknown message %s\n", __FUNCTION__, *argv);
+            break;
         }
-    }
 
-    else if (0 == strcmp(keyWord, REGIS))
-    {
-        // REGIS id port m***
+        argv++;
 
-        char prefix[32];
-        sprintf(prefix, "%s %s %s %c", REGIS, name, port, '\0');
-        iter = answer;
-
-        memcpy(iter, prefix, strlen(prefix));
-        iter += strlen(prefix);
-
-        memcpy(iter, &m, sizeof(m));
-        iter += sizeof(m);
-
-        memcpy(iter, TCP_END, strlen(TCP_END));
-        iter += strlen(TCP_END);
-
-        ssize_t answerLen = iter - answer;
-
-        ssize_t rezSend = send(fd, answer, answerLen, 0);
-        if (rezSend < answerLen)
+        if (pMsgDesc->msg == eTcpMsgNEWPL)
         {
-            perror("REGIS sending failure");
-            rez = EXIT_FAILURE;
-            CLOSE(fd);
-            return rez;
+            if (argc < 2) {fprintf(stderr, "{%s} arguments ID/port are missing\n", __FUNCTION__); break; }
+            const char *pId   = *argv; argv++; argc--;
+            int32_t     iPort = atoi(*argv); argv++; argc--;
+            
+            printf("Send command %s %s %d\n", pMsgDesc->prefix, pId, iPort);
+            if (!sendMsg(fd, eTcpMsgNEWPL, pId, (uint32_t)iPort))
+            {
+                fprintf(stderr, "{%s} eTcpMsgNEWPL sending failure!", __FUNCTION__);
+                break;
+            }
+            if (0 != receiveMessages(fd)) { break; }
         }
-    }
-
-    else if (0 == strcmp(keyWord, UNREG))
-    {
-        // UNREG m***
-        iter = answer;
-
-        memcpy(iter, keyWord, strlen(keyWord));
-        iter += strlen(keyWord);
-
-        memcpy(iter, WHITE, strlen(WHITE));
-        iter += strlen(WHITE);
-
-        memcpy(iter, &m, sizeof(m));
-        iter += sizeof(m);
-
-        memcpy(iter, TCP_END, strlen(TCP_END));
-        iter += strlen(TCP_END);
-
-        ssize_t answerLen = iter - answer;
-
-        ssize_t rezSend = send(fd, answer, answerLen, 0);
-        if (rezSend < answerLen)
+        else if (pMsgDesc->msg == eTcpMsgREGIS)
         {
-            perror("UNREG sending failure");
-            rez = EXIT_FAILURE;
-            CLOSE(fd);
-            return rez;
+            if (argc < 3) {fprintf(stderr, "{%s} arguments ID/port/m are missing\n", __FUNCTION__); break; }
+            const char *pId   = *argv; argv++; argc--;
+            int32_t     iPort = atoi(*argv); argv++; argc--;
+            int32_t     iM    = atoi(*argv); argv++; argc--;
+
+            printf("Send command %s %s %d %d\n", pMsgDesc->prefix, pId, iPort, iM);
+
+            if (!sendMsg(fd, eTcpMsgREGIS, pId, (uint32_t)iPort, (uint32_t)iM))
+            {
+                fprintf(stderr, "{%s} eTcpMsgREGIS sending failure!", __FUNCTION__);
+                break;
+            }
+            if (0 != receiveMessages(fd)) { break; }
         }
-    }
-
-    else if (0 == strcmp(keyWord, "SIZE?"))
-    {
-    }
-
-    else if (0 == strcmp(keyWord, LIST_Q))
-    {
-        CCCCC = 5;
-        // LIST? m***
-        iter = answer;
-
-        memcpy(iter, keyWord, strlen(keyWord));
-        iter += strlen(keyWord);
-
-        memcpy(iter, WHITE, strlen(WHITE));
-        iter += strlen(WHITE);
-
-        memcpy(iter, &m, sizeof(m));
-        iter += sizeof(m);
-
-        memcpy(iter, TCP_END, strlen(TCP_END));
-        iter += strlen(TCP_END);
-
-        ssize_t answerLen = iter - answer;
-
-        ssize_t rezSend = send(fd, answer, answerLen, 0);
-        if (rezSend < answerLen)
+        else if (pMsgDesc->msg == eTcpMsgUNREG)
         {
-            perror("LIST? sending failure");
-            rez = EXIT_FAILURE;
-            CLOSE(fd);
-            return rez;
+            printf("Send command %s\n", pMsgDesc->prefix);
+
+            if (!sendMsg(fd, eTcpMsgUNREG))
+            {
+                fprintf(stderr, "{%s} eTcpMsgUNREG sending failure!", __FUNCTION__);
+                break;
+            }
+            if (0 != receiveMessages(fd)) { break; }
         }
-    }
-
-    else if (0 == strcmp(keyWord, GAME_Q))
-    {
-        // GAME?***
-        sprintf(answer, "%s%s", keyWord, TCP_END);
-
-        ssize_t rezSend = send(fd, answer, strlen(answer), 0);
-        if (rezSend < strlen(answer))
+        else if (pMsgDesc->msg == eTcpMsgLISTQ)
         {
-            perror("GAME? sending failure");
-            rez = EXIT_FAILURE;
-            CLOSE(fd);
-            return rez;
-        }
-    }
+            if (argc < 1) {fprintf(stderr, "{%s} argument m are missing\n", __FUNCTION__); break; }
+            int32_t iM = atoi(*argv); argv++; argc--;
 
-    
-    for (int i =0; i < CCCCC; i++)
-    {
-        printf("%s MSG %d/%d\n", __FUNCTION__, i, CCCCC);
-        recieveMessage(fd, buf, TCP_END);   
+            printf("Send command %s %d\n", pMsgDesc->prefix, iM);
+
+            if (!sendMsg(fd, eTcpMsgLISTQ, (uint32_t)iM))
+            {
+                fprintf(stderr, "{%s} eTcpMsgLISTQ sending failure!", __FUNCTION__);
+                break;
+            }
+            if (0 != receiveMessages(fd)) { break; }
+        }
+        else if (pMsgDesc->msg == eTcpMsgGAMEQ)
+        {
+            printf("Send command %s\n", pMsgDesc->prefix);
+
+            if (!sendMsg(fd, eTcpMsgGAMEQ))
+            {
+                fprintf(stderr, "{%s} eTcpMsgGAMEQ sending failure!", __FUNCTION__);
+                break;
+            }
+            if (0 != receiveMessages(fd)) { break; }
+        }
     }
             
     shutdown(fd, SHUT_RDWR);

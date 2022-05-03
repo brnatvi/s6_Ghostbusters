@@ -5,11 +5,12 @@
 int main(int argc, char **argv)
 {
     sigaction(SIGPIPE, &(struct sigaction){{SIG_IGN}}, NULL);
+    srand(time(NULL)); 
 
     // declaration & init
     int port = 4242;
     int rez = EXIT_SUCCESS;
-    int fd1 = -1;
+    int tcpListenSocket = -1;
 
     // create context for connection
     struct stServerContext *context = (struct stServerContext *)malloc(sizeof(struct stServerContext));
@@ -19,7 +20,7 @@ int main(int argc, char **argv)
         goto lExit;
     }
     memset(context, 0, sizeof(struct sockaddr_in));
-    context->fd1 = fd1;
+    context->tcpListenSocket = tcpListenSocket;
 
     struct sockaddr_in *socAddress = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in));
     memset(socAddress, 0, sizeof(struct sockaddr_in));
@@ -35,21 +36,13 @@ int main(int argc, char **argv)
     pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
     pthread_mutex_init(&context->serverLock, &Attr);
 
-    context->games = (struct listElements_t *)malloc(sizeof(struct listElements_t));
-    if (!context->games)
+    context->lstGames = (struct listElements_t *)malloc(sizeof(struct listElements_t));
+    if (!context->lstGames)
     {
-        perror("malloc context->games");
+        perror("malloc context->lstGames");
         goto lExit;
     }
-    memset(context->games, 0, sizeof(struct listElements_t));
-
-    context->users = (struct listElements_t *)malloc(sizeof(struct listElements_t));
-    if (!context->users)
-    {
-        perror("malloc context->users");
-        goto lExit;
-    }
-    memset(context->users, 0, sizeof(struct listElements_t));
+    memset(context->lstGames, 0, sizeof(struct listElements_t));
 
     // create TCP socket (bind port) and wait for connection
     int r = createTcpConnection(context, port);
@@ -58,11 +51,11 @@ int main(int argc, char **argv)
         rez = EXIT_FAILURE;
         goto lExit;
     }
-    // printf("connection created : \nfd1 = %d\nsin_addr = %d\nport = %d\n", context->fd1, context->sockAddress.sin_addr.s_addr, context->sockAddress.sin_port);
+    // printf("connection created : \nfd1 = %d\nsin_addr = %d\nport = %d\n", context->tcpListenSocket, context->sockAddress.sin_addr.s_addr, context->sockAddress.sin_port);
 
     while (1)
     {
-        // accept and communication before the game
+        // accept and routine_com before the game
         int rezAccept = acceptAndCommunication(context);
         if (EXIT_FAILURE == rezAccept) // TODO if need to crush the server if one accept is failure ??
         {
@@ -74,23 +67,16 @@ int main(int argc, char **argv)
 
 lExit:
     FREE_MEM(socAddress);    
-    while (context->users->first)
-    {
-        struct stGamer *gamer = (struct stGamer *)(context->users->first->data);      
-        freeGamer(gamer);
-        removeEl(context->users, context->users->first);
-    }
-    FREE_MEM(context->users);
 
-    while (context->games->first)
+    while (context->lstGames->first)
     {
-        struct stGame *game = (struct stGame *)(context->games->first->data);      
+        struct stGame *game = (struct stGame *)(context->lstGames->first->data);      
         freeGame(game);
-        removeEl(context->games, context->games->first);
+        removeEl(context->lstGames, context->lstGames->first);
     }
-    FREE_MEM(context->games);
+    FREE_MEM(context->lstGames);
 
     FREE_MEM(context);
-    CLOSE(fd1);
+    CLOSE(tcpListenSocket);
     return rez;
 }

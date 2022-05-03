@@ -13,7 +13,7 @@ struct listElements_t
 {
     struct element_t*   first;
     struct element_t*   last;
-    uint8_t             count;
+    size_t              count;
 };
 
 

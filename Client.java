@@ -57,8 +57,6 @@ class Client {
         byte[] toSend = SendTCP.sendMess(msg);
         out.print(new String(toSend));
         out.flush();
-        
-        //dans SendTCP
     }
 
     //TODO: vérifier que pseudo est bien 8 caractères

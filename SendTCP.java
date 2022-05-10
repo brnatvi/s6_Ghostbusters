@@ -29,6 +29,9 @@ public class SendTCP {
         switch(str_entete){
             case "NEWPL" :
             case "GAME?":
+            case "START":
+            case "GLIS?":
+            case "IQUIT":
                 toSend = msg.getBytes();
                 break;
             case "REGIS" :
@@ -38,7 +41,7 @@ public class SendTCP {
                 System.arraycopy(entete_id_port, 0, toSend, 0, entete_id_port.length);
                 System.arraycopy(m, 0, toSend, entete_id_port.length, 1);
                 System.arraycopy(tcpEnd, 0, toSend, entete_id_port.length+1, 3);
-                
+
                 break;
             case "UNREG" :
             case "SIZE?" :

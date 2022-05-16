@@ -15,6 +15,7 @@
 #define LEN_PORT        4           // length of port in string
 #define BUF_SIZE        6098
 
+#define MULTI_CAST_ADDR "239.255.255.250"
 
 ////////////////////////////////// Structures ////////////////////////////////////
 
@@ -22,18 +23,19 @@ struct stGame;
 
 struct stPlayer
 {                                               
-    int32_t             tcpSocket;    
-    uint32_t            ipAddress;              
-    uint16_t            portUDP;                
+    int32_t             tcpSocket;
+    uint32_t            ipAddress;
+    uint16_t            portUDP;
     struct stIpBuffer   stTcpBuf;
 
-    char                id[USER_ID_LEN+1];      
+    char                id[USER_ID_LEN+1];
 
-    uint16_t            x;                      
-    uint16_t            y;                      
-    uint16_t            score;                  
+    uint16_t            x;
+    uint16_t            y;
+    uint16_t            score;
 
     struct stGame      *pGame;
+    bool                isStarted;
 };
 
 struct stGhost
@@ -53,22 +55,26 @@ struct stLabirinth
     unsigned int          *maze;              //labirynth  [w][w][w][w] x Heigh
 };
 
+
 struct stGame
 {       
     uint8_t                idGame;
-    struct listElements_t* lstPlayers;    
+    struct listElements_t* lstPlayers;
     struct stLabirinth     labirinth;
-    uint16_t               port;              //char[4]
-    uint8_t                isLaunched;   //!!!USE SERVER LOCK TO UPDATE! 
+    int                    udpMsgSocket;
+    int                    udpMctSocket;
+    struct sockaddr_in     MctAddr;
+    uint8_t                isLaunched;   
     pthread_mutex_t        gameLock;
+    pthread_t              thread;
 };
 
 struct stServerContext                        //Created by: server main 
 {                                             //Instances : single per process
-    int                    tcpListenSocket;  //Access    : server main (thread main)
+    int                    tcpListenSocket;   //Access    : server main (thread main)
                                               //          : routine_com (thread comm)
     struct sockaddr_in     sockAddress;       //          : all protocol functions (thread comm)
-    struct listElements_t* lstGames;             //          : changed by createGame (thread comm)    
+    struct listElements_t* lstGames;          //          : changed by createGame (thread comm)    
     uint16_t               lastGameId;        
     uint8_t                countStarted;
     pthread_mutex_t        serverLock;
@@ -100,10 +106,13 @@ bool removeGamePlayer(struct stGamerContext *gContext, struct stPlayer *player);
 void addGame(struct stGamerContext *gContext, struct stGame *newGame);
 bool removeGame(struct stGamerContext *gContext, struct stGame *game, bool bForce);
 
+bool isGameReadyToStart(struct stGamerContext *gContext, struct stGame *game);
+
 void printPlayers(struct stGamerContext *gContext, const char* pCaller);
 
 
 ////////////////////////////////// Macros' //////////////////////////////////////
+#define MAZE_AT(STRUCT, W, X, Y) STRUCT[(W) * (Y) + (X)]
 
 #define CLOSE(File) if (File >= 0) {close(File); File = -1; }
 #define FREE_MEM(Mem) if (Mem) {free(Mem); Mem = NULL;}

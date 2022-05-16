@@ -1,6 +1,9 @@
-#ifndef ENGINE
-#define ENGINE
+#ifndef __ENGINE__
+#define __ENGINE__
 
+#include "server.h"
+#include "commons.h"
 
+int   launchGame(struct stGamerContext *gContext, struct stGame *game);
 
-#endif //ENGINE
+#endif //__ENGINE__

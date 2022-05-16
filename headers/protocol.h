@@ -9,6 +9,13 @@
 #include <errno.h>
 #include <stdarg.h>
 
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+
+
 #define USER_ID_LEN      8           // length of gamer's id (preudo)
 #define LEN_PORT         4           // length of port in string
 #define SERVER_PORT      4242        // length of port in string
@@ -16,6 +23,7 @@
 #define PREFIX_LEN       5             // length of keywords
 #define END_LEN          3              // length of keywords
 #define MAX_LEN          220            // example: [MALL? idxxxxxx mess200max***]+buffer
+#define MAX_MSG_LEN      200            // 
 #define IP_BUFFER_MAX    8192
 
 #define TCP_END          "***"
@@ -101,5 +109,10 @@ const struct stMsgDesc *getMsgDescriptionById(enum msgId msg);
 int                     tcpGetMsg(int socket, struct stIpBuffer *buf, struct stRawMessage *msg);
 
 bool                    sendMsg(int socket, enum msgId msg, ...);
+bool                    sendMsgTo(int socket, 
+                                  const struct sockaddr *addr, 
+                                  socklen_t addrlen, 
+                                  enum msgId msg, 
+                                  ...);
 size_t                  scanMsg(uint8_t *pMsg, enum msgId msg, ...);
 

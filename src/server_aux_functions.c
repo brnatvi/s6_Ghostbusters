@@ -1,4 +1,5 @@
 #include "server_aux_functions.h"
+#include "engine.h"
 #include <fcntl.h>
 
 #define PRINT_PROTOCOL
@@ -22,6 +23,9 @@ int createTcpConnection(struct stServerContext *context, int port)
         rez = -1;
         goto lExit;
     }
+
+    int enable = 1;
+    setsockopt(context->tcpListenSocket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
 
     rez = bind(context->tcpListenSocket, (struct sockaddr *)&context->sockAddress, sizeof(struct sockaddr_in));
     if (rez < 0)
@@ -70,7 +74,7 @@ int acceptAndCommunication(struct stServerContext *context)
         }
 
         pGamerContext->serverCtx = context;
-        pGamerContext->player = createPlayer(tcpSocket, atoi(inet_ntoa(context->sockAddress.sin_addr))); // TODO check that need htons
+        pGamerContext->player = createPlayer(tcpSocket, ntohl(context->sockAddress.sin_addr.s_addr)); // TODO check that need htons
 
         if (!pGamerContext->player)
         {
@@ -144,25 +148,61 @@ void *routine_com(void *args)
         {
             sendGames(pGamerContext);
         }
-
-        // else if (0 == strcmp(req, GAMES))
-        // {
-        //     processGAMES(context, bufer, rezSend, answer);
-        // }
-
-        //        - if START recieved from all lstPlayers :
-        //                      + create thread
-        //                      + create UDP
-        //                      + launch engine on it with this stGame
+        else if (stMsg.msg == eTcpMsgSTART)
+        {
+            processSTART(pGamerContext, (uint8_t*)stMsg.msgRaw);
+        }
+        else if (stMsg.msg == eTcpMsgGLISQ)
+        {
+            if (!processGLIS(pGamerContext))
+            {
+                sendMsg(tcpSocket, eTcpMsgGOBYE);
+                break;
+            }
+        }
+        else if (stMsg.msg == eTcpMsgIQUIT)
+        {
+            if (sendMsg(tcpSocket, eTcpMsgGOBYE))
+            {
+                break;
+            }
+        }
+        else if (stMsg.msg == eTcpMsgMALLQ)
+        {
+            if (!processMALL_(pGamerContext, (uint8_t*)stMsg.msgRaw))
+            {
+                break;
+            }
+        }
+        else if (stMsg.msg == eTcpMsgSENDQ)
+        {
+            if (!processSEND_(pGamerContext, (uint8_t*)stMsg.msgRaw))
+            {
+                break;
+            }
+        }
+        else if (    (stMsg.msg == eTcpMsgUPMOV)
+                  || (stMsg.msg == eTcpMsgDOMOV)
+                  || (stMsg.msg == eTcpMsgLEMOV)
+                  || (stMsg.msg == eTcpMsgRIMOV)
+                )
+        {
+            if (!processMOVE(pGamerContext, stMsg.msg, (uint8_t*)stMsg.msgRaw))
+            {
+                sendMsg(tcpSocket, eTcpMsgGOBYE);
+                break;
+            }
+        }
     }
 
-    //TODO: uncomment
-    //removeGamePlayer(pGamerContext, pGamerContext->player);
-    //freePlayer(pGamerContext->player);
+    removeGamePlayer(pGamerContext, pGamerContext->player);
+    freePlayer(pGamerContext->player);
 
     printf("{%s} Close player [%s] communication thread!\n", __FUNCTION__, pGamerContext->player->id);
     return NULL;
 }
+
+
 
 //////////////////////////// Process functions //////////////////////////////
 ////           return -1 if error, else nmber of sent bytes      ////////
@@ -437,8 +477,8 @@ bool processLIST_(struct stGamerContext *gContext, uint8_t *bufer)
                 }
             }
             pthread_mutex_unlock(&game->gameLock);   
+            gameEl = gameEl->next;
         }
-        gameEl = gameEl->next;
     }
 
     pthread_mutex_unlock(&gContext->serverCtx->serverLock);
@@ -455,6 +495,285 @@ bool processLIST_(struct stGamerContext *gContext, uint8_t *bufer)
     return bRet;
 }
 
+//-> START*** -> start of game
+bool processSTART(struct stGamerContext *gContext, uint8_t *bufer)
+{
+    int      tcpSocket = gContext->player->tcpSocket;
+    bool     bRet      = true;
+    
+    if (gContext->player->pGame)
+    {
+        struct stGame *pGame = gContext->player->pGame;
+
+        pthread_mutex_lock(&pGame->gameLock);
+        gContext->player->isStarted = true;
+        
+        do
+        {
+            gContext->player->x = rand() % pGame->labirinth.width;
+            gContext->player->y = rand() % pGame->labirinth.heigh;
+        } 
+        while (MAZE_WALL == MAZE_AT(pGame->labirinth.maze, (uint32_t)pGame->labirinth.width, (uint32_t)gContext->player->x, (uint32_t)gContext->player->y));
+
+        pthread_mutex_unlock(&pGame->gameLock);
+
+        if (isGameReadyToStart(gContext, pGame))
+        {
+            launchGame(gContext, pGame);
+        }            
+    }
+    else
+    {
+        if (!sendMsg(tcpSocket, eTcpMsgNMEMB))
+        {
+            fprintf(stderr, "{%s} NMEMB sending failure!", __FUNCTION__);
+            bRet = false;
+        }
+    }        
+
+    return bRet;
+}
+
+bool processGLIS(struct stGamerContext *gContext)
+{
+    int      tcpSocket = gContext->player->tcpSocket;
+    bool     bRet      = false;
+    
+    if (gContext->player->pGame)
+    {
+        struct stGame *game = gContext->player->pGame;
+        pthread_mutex_lock(&game->gameLock);
+        if (game->isLaunched)
+        {
+            bRet = true;
+
+            if (!sendMsg(tcpSocket, eTcpMsgGLISA, (uint32_t)game->lstPlayers->count))
+            {
+                fprintf(stderr, "{%s} eTcpMsgGLISA sending failure!", __FUNCTION__);
+                bRet = false;
+            }
+            if (bRet)
+            {
+                struct element_t *gamerEl = game->lstPlayers->first;
+                while (gamerEl)
+                {
+                    struct stPlayer *gamer = (struct stPlayer *)(gamerEl->data);
+
+                    if (!sendMsg(tcpSocket, eTcpMsgGPLYR, gamer->id, (uint32_t)gamer->x, (uint32_t)gamer->y, (uint32_t)gamer->score))
+                    {
+                        fprintf(stderr, "{%s} eTcpMsgGPLYR sending failure!", __FUNCTION__);
+                        bRet = false;
+                    }
+                    gamerEl = gamerEl->next;
+                }
+            }
+        }
+
+        pthread_mutex_unlock(&game->gameLock);
+    }
+
+    return bRet;
+}
+
+bool processMOVE(struct stGamerContext *gContext, enum msgId Id, uint8_t *bufer)
+{
+    uint32_t shift = 0;
+
+    if (1 != scanMsg(bufer, Id, &shift))
+    {
+        fprintf(stderr, "{%s} eTcpMsgMOVE scan failure!", __FUNCTION__);
+        return false;
+    }
+
+    if (!gContext->player->pGame)
+    {
+        fprintf(stderr, "{%s} Game isn't statred!", __FUNCTION__);
+        return false;
+    }
+
+    bool ret = false;
+    struct stGame *game = gContext->player->pGame;
+    pthread_mutex_lock(&game->gameLock);
+    if (game->isLaunched)
+    {
+        ret = true;
+        uint16_t newX = gContext->player->x;
+        uint16_t newY = gContext->player->y;
+        uint16_t uScore = 1;
+        uint16_t uGhost = 0;
+
+        while (shift--)
+        {
+            if      (eTcpMsgDOMOV == Id) newY++;
+            else if (eTcpMsgUPMOV == Id) newY--;
+            else if (eTcpMsgLEMOV == Id) newX--;
+            else if (eTcpMsgRIMOV == Id) newX++;
+            if (MAZE_WALL == MAZE_AT(game->labirinth.maze, game->labirinth.width, newX, newY))
+            {   
+                if      (eTcpMsgDOMOV == Id) newY--;
+                else if (eTcpMsgUPMOV == Id) newY++;
+                else if (eTcpMsgLEMOV == Id) newX++;
+                else if (eTcpMsgRIMOV == Id) newX--;
+                break;
+            }
+
+            struct element_t* ghostEl = game->labirinth.ghosts->first;
+            while (ghostEl)
+            {
+                struct stGhost *ghost = (struct stGhost*)(ghostEl->data);
+                if ( (ghost->x == newX) && (ghost->y == newY))
+                {
+                    gContext->player->score += uScore;
+                    uScore = uScore * 2;
+                    uGhost++;
+
+                    sendMsgTo(game->udpMctSocket,
+                                (struct sockaddr*)&game->MctAddr,
+                                sizeof(game->MctAddr),
+                                eUdpMsgSCORE,
+                                gContext->player->id, 
+                                (uint32_t)gContext->player->score,
+                                (uint32_t)ghost->x,
+                                (uint32_t)ghost->y);
+
+                    struct element_t* ghostElNext = ghostEl->next;
+                    free(ghost);
+                    removeEl(game->labirinth.ghosts, ghostEl);
+                    ghostEl = ghostElNext;
+                    continue;
+                }
+                ghostEl = ghostEl->next;
+            }
+        }
+        gContext->player->x = newX;
+        gContext->player->y = newY;
+
+        if (uGhost)
+        {
+            sendMsg(gContext->player->tcpSocket, 
+                    eTcpMsgMOVEF, 
+                    (uint32_t)gContext->player->x, 
+                    (uint32_t)gContext->player->y,
+                    (uint32_t)gContext->player->score);
+        }
+        else
+        {
+            sendMsg(gContext->player->tcpSocket, 
+                    eTcpMsgMOVEA, 
+                    (uint32_t)gContext->player->x, 
+                    (uint32_t)gContext->player->y
+                    );
+        }
+    }
+    pthread_mutex_unlock(&game->gameLock);
+
+    return ret;
+}
+
+bool processMALL_(struct stGamerContext *gContext, uint8_t *bufer)
+{
+    char pMsg[MAX_LEN];
+
+    if (1 != scanMsg(bufer, eTcpMsgMALLQ, pMsg))
+    {
+        fprintf(stderr, "{%s} eTcpMsgMALLQ scan failure!", __FUNCTION__);
+        return false;
+    }
+
+    if (!gContext->player->pGame)
+    {
+        fprintf(stderr, "{%s} Game isn't statred!", __FUNCTION__);
+        return false;
+    }
+
+    bool ret = false;
+    struct stGame *game = gContext->player->pGame;
+    pthread_mutex_lock(&game->gameLock);
+
+    if (game->isLaunched)
+    {
+        sendMsgTo(game->udpMctSocket, 
+                  (struct sockaddr*)&game->MctAddr, 
+                  sizeof(game->MctAddr), 
+                  eUdpMsgMESSA, 
+                  gContext->player->id, 
+                  pMsg);
+
+        sendMsg(gContext->player->tcpSocket, eTcpMsgMALLA);
+        ret = true;
+    }
+
+    pthread_mutex_unlock(&game->gameLock);
+
+    return ret;
+}
+
+
+bool processSEND_(struct stGamerContext *gContext, uint8_t *bufer)
+{
+    char pMsg[MAX_LEN];
+    char pPlayerId[USER_ID_LEN+1];
+
+    if (2 != scanMsg(bufer, eTcpMsgSENDQ, pPlayerId, pMsg))
+    {
+        fprintf(stderr, "{%s} eTcpMsgSENDQ scan failure!", __FUNCTION__);
+        return false;
+    }
+
+    if (!gContext->player->pGame)
+    {
+        fprintf(stderr, "{%s} Game isn't statred!", __FUNCTION__);
+        return false;
+    }
+
+    bool ret = false;
+    struct stGame *game = gContext->player->pGame;
+    pthread_mutex_lock(&game->gameLock);
+
+    if (game->isLaunched)
+    {
+        struct element_t *gamerEl = game->lstPlayers->first;
+        struct stPlayer  *gamer   = NULL;
+        while (gamerEl)
+        {
+            gamer = (struct stPlayer *)(gamerEl->data);
+
+            if (0 == memcmp(gamer->id, pPlayerId, USER_ID_LEN))
+            {
+                ret = true;
+                break;
+            }
+            gamerEl = gamerEl->next;
+        }
+
+        if (ret)
+        {
+            struct sockaddr_in udpAddr;
+            udpAddr.sin_family      = AF_INET;
+            udpAddr.sin_addr.s_addr = htonl(gamer->ipAddress);
+            udpAddr.sin_port        = htons(gamer->portUDP);
+            
+            sendMsgTo(gContext->player->pGame->udpMsgSocket, 
+                      (struct sockaddr*)&udpAddr, 
+                      sizeof(udpAddr), 
+                      eUdpMsgMESSP, 
+                      gContext->player->id, 
+                      pMsg);
+
+            sendMsg(gContext->player->tcpSocket, eTcpMsgSENDA);
+        }
+        else
+        {
+            sendMsg(gContext->player->tcpSocket, eTcpMsgNSEND);
+        }
+    }
+
+    pthread_mutex_unlock(&game->gameLock);
+
+    return ret;
+}
+
+
 //////////////////////////// Auxiliary functions /////////////////////////////////
 
 // create new game and fill folowing fields: idGame, port.
@@ -470,6 +789,7 @@ struct stGame *createGame(struct stGamerContext *gContext)
     }
     memset(game, 0, sizeof(struct stGame));
     game->isLaunched = 0; // is done abouve
+    game->thread = 0;
     pthread_mutexattr_t Attr;
     pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
     pthread_mutex_init(&game->gameLock, &Attr);
@@ -478,18 +798,25 @@ struct stGame *createGame(struct stGamerContext *gContext)
     game->idGame = ++gContext->serverCtx->lastGameId;
     pthread_mutex_unlock(&gContext->serverCtx->serverLock);
 
-    //create list of lstPlayers and labirinth
+    //create list of lstPlayers
     game->lstPlayers = (struct listElements_t *)malloc(sizeof(struct listElements_t));
     if (!game->lstPlayers)
     {
-        perror("malloc lstPlayers or labirinth in createGame");
+        perror("malloc lstPlayers in createGame");
         return NULL;
     }
     memset(game->lstPlayers, 0, sizeof(struct listElements_t));
 
-    game->labirinth.width = (rand() % 96) + 32;
-    game->labirinth.heigh = (rand() % 96) + 32;
+    //create labirinth
+    game->labirinth.width = 10;//(rand() % 96) + 32;
+    game->labirinth.heigh = 10;//(rand() % 96) + 32;
     game->labirinth.maze  = maze_create(game->labirinth.width, game->labirinth.heigh);
+    game->udpMsgSocket    = socket(AF_INET, SOCK_DGRAM, 0);
+    game->udpMctSocket    = socket(AF_INET, SOCK_DGRAM, 0);
+    
+    game->MctAddr.sin_family      = AF_INET;
+    game->MctAddr.sin_addr.s_addr = inet_addr(MULTI_CAST_ADDR);
+    game->MctAddr.sin_port        = htons(9876 + game->idGame);
 
     //create list of ghosts and pointer to stGrid
     game->labirinth.ghosts = (struct listElements_t *)malloc(sizeof(struct listElements_t));
@@ -500,7 +827,8 @@ struct stGame *createGame(struct stGamerContext *gContext)
     }
     memset(game->labirinth.ghosts, 0, sizeof(struct listElements_t));
 
-    uint8_t bGhostsCount = game->labirinth.width & 0xFF;
+    uint8_t bGhostsCount = 16;//(rand() % ((game->labirinth.width / 2) % 255)) + 8;
+
     while (bGhostsCount--)
     {
         struct stGhost *pGhost = (struct stGhost *)malloc(sizeof(struct stGhost));
@@ -509,7 +837,7 @@ struct stGame *createGame(struct stGamerContext *gContext)
         do {
             pGhost->x = rand() % game->labirinth.width;
             pGhost->y = rand() % game->labirinth.heigh;
-        } while (MAZE_WALL == game->labirinth.maze[(uint32_t)pGhost->y * (uint32_t)game->labirinth.width + (uint32_t)pGhost->y]);
+        } while (MAZE_WALL == MAZE_AT(game->labirinth.maze, (uint32_t)game->labirinth.width, (uint32_t)pGhost->x, (uint32_t)pGhost->y));
 
         pushFirst(game->labirinth.ghosts, pGhost);
     }
@@ -524,6 +852,9 @@ void freeGame(struct stGame *pGame)
     {
         pthread_mutex_lock(&pGame->gameLock);
 
+        CLOSE(pGame->udpMsgSocket);
+        CLOSE(pGame->udpMctSocket);
+
         // free lstPlayers
         while (pGame->lstPlayers->first)
         {
@@ -531,7 +862,6 @@ void freeGame(struct stGame *pGame)
             ((struct stPlayer*)(pGame->lstPlayers->first->data))->pGame = NULL;
             removeEl(pGame->lstPlayers, pGame->lstPlayers->first);
         }
-
         FREE_MEM(pGame->lstPlayers);
 
         while (pGame->labirinth.ghosts->first)
@@ -544,8 +874,17 @@ void freeGame(struct stGame *pGame)
         FREE_MEM(pGame->labirinth.ghosts);
         FREE_MEM(pGame->labirinth.maze);
 
+        bool bRunning = pGame->isLaunched;
+
+        pGame->isLaunched = false;
+
         // free game
         pthread_mutex_unlock(&pGame->gameLock);
+
+        if (bRunning)
+        {
+            pthread_join(pGame->thread, NULL);
+        }
 
         pthread_mutex_destroy(&pGame->gameLock);
         FREE_MEM(pGame);
@@ -567,6 +906,7 @@ struct stPlayer *createPlayer(int32_t socket, uint32_t uIpv4)
     newPlayer->tcpSocket  = socket;
     newPlayer->ipAddress   = uIpv4; //TODO check that need htons
     newPlayer->pGame       = NULL;
+    newPlayer->isStarted   = false;
 
     return newPlayer;
 }
@@ -635,10 +975,14 @@ bool removeGamePlayer(struct stGamerContext *gContext, struct stPlayer *player)
         pIter = pIter->next;
     }
 
-    size_t szPlayersCount = player->pGame->lstPlayers->count;
-    pthread_mutex_unlock(&player->pGame->gameLock);
+    size_t szPlayersCount = pCurrentGame->lstPlayers->count;
+    pthread_mutex_unlock(&pCurrentGame->gameLock);
 
-    if (  (!szPlayersCount) && (bFound) )
+    if (isGameReadyToStart(gContext, pCurrentGame))
+    {
+        launchGame(gContext, pCurrentGame);
+    }            
+    else if (  (!szPlayersCount) && (bFound) )
     {
         if (removeGame(gContext, pCurrentGame, false))
         {
@@ -694,6 +1038,28 @@ bool removeGame(struct stGamerContext *gContext, struct stGame *game, bool bForc
 
     pthread_mutex_unlock(&gContext->serverCtx->serverLock);
     return bRemoved;
+}
+
+bool isGameReadyToStart(struct stGamerContext *gContext, struct stGame *game)
+{
+    pthread_mutex_lock(&game->gameLock);
+    // check if Start was recieved from all gamers
+    bool isReadyToStart = true;
+    size_t szCount = game->lstPlayers->count;
+    struct element_t *playerEl  = game->lstPlayers->first;
+    while (playerEl)
+    {
+        struct stPlayer *player = (struct stPlayer *)(playerEl->data);
+        if (!player->isStarted)
+        {
+            isReadyToStart = false;
+            break;
+        }     
+        playerEl = playerEl->next;           
+    }
+    pthread_mutex_unlock(&game->gameLock);
+
+    return ((szCount > 0) && (isReadyToStart));
 }
 
 void printPlayers(struct stGamerContext *gContext, const char *pCaller)

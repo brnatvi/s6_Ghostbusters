@@ -36,13 +36,13 @@ const struct stMsgDesc group_msg[] =
     {.msg = eTcpMsgLEMOV,  .prefix = "LEMOV", .format = "LEMOV %d***",                .szMsg = sizeof("LEMOV ddd***") - 1                           },
     {.msg = eTcpMsgRIMOV,  .prefix = "RIMOV", .format = "RIMOV %d***",                .szMsg = sizeof("RIMOV ddd***") - 1                           },
     {.msg = eTcpMsgMOVEA,  .prefix = "MOVE!", .format = "MOVE! %x %x***",             .szMsg = sizeof("MOVE! XXX YYY***") - 1                       },
-    {.msg = eTcpMsgMOVEF,  .prefix = "MOVEF", .format = "MOVEF %x %y %p",             .szMsg = sizeof("MOVEF XXX YYY pppp***") - 1                  },
+    {.msg = eTcpMsgMOVEF,  .prefix = "MOVEF", .format = "MOVEF %x %y %p***",          .szMsg = sizeof("MOVEF XXX YYY pppp***") - 1                  },
     {.msg = eTcpMsgIQUIT,  .prefix = "IQUIT", .format = "IQUIT***",                   .szMsg = sizeof("IQUIT***") - 1                               },
     {.msg = eTcpMsgGOBYE,  .prefix = "GOBYE", .format = "GOBYE***",                   .szMsg = sizeof("GOBYE***") - 1                               },
     {.msg = eTcpMsgGLISQ,  .prefix = "GLIS?", .format = "GLIS?***",                   .szMsg = sizeof("GLIS?***") - 1                               },
     {.msg = eTcpMsgGLISA,  .prefix = "GLIS!", .format = "GLIS! %s***",                .szMsg = sizeof("GLIS! s***") - 1                             },
     {.msg = eTcpMsgGPLYR,  .prefix = "GPLYR", .format = "GPLYR %G %x %y %p***",       .szMsg = sizeof("GPLYR idxxxxxx XXX YYY pppp***") - 1         },
-    {.msg = eTcpMsgMALLQ,  .prefix = "MALL?", .format = "MALL? %G %M***",             .szMsg = 0 /*sizeof("MALL? idxxxxxx mess***")*/               },
+    {.msg = eTcpMsgMALLQ,  .prefix = "MALL?", .format = "MALL? %M***",                .szMsg = 0 /*sizeof("MALL? idxxxxxx mess***")*/               },
     {.msg = eTcpMsgMALLA,  .prefix = "MALL!", .format = "MALL!***",                   .szMsg = sizeof("MALL!***") - 1                               },
     {.msg = eTcpMsgSENDQ,  .prefix = "SEND?", .format = "SEND? %G %M***",             .szMsg = 0 /*sizeof("SEND? idxxxxxx mess***")*/               },
     {.msg = eTcpMsgSENDA,  .prefix = "SEND!", .format = "SEND!***",                   .szMsg = sizeof("SEND!***") - 1                               },
@@ -150,7 +150,7 @@ int tcpGetMsg(int socket, struct stIpBuffer *buf, struct stRawMessage *pMsg)
                 return -1;
             }
 
-            if (buf->szWritten >= desc->szMsg)
+            if ((buf->szWritten >= desc->szMsg) && (desc->szMsg))
             {
                 pMsg->msg  = desc->msg;
                 pMsg->szMsg = desc->szMsg;
@@ -161,21 +161,21 @@ int tcpGetMsg(int socket, struct stIpBuffer *buf, struct stRawMessage *pMsg)
             else if (0 == desc->szMsg)
             {
                 const size_t szTail = 3;
-                uint8_t *pIt = buf->buffer + PREFIX_LEN;
-                while ((pIt + szTail) <= (buf->buffer + buf->szWritten))
+                uint8_t *iter = buf->buffer + PREFIX_LEN;
+                while ((iter + szTail) <= (buf->buffer + buf->szWritten))
                 {
-                    if (0 == strncmp("***", (const char*)pIt, szTail))
+                    if (0 == strncmp("***", (const char*)iter, szTail))
                     {
-                        pIt += szTail; //***
+                        iter += szTail; //***
                         pMsg->msg  = desc->msg;
-                        pMsg->szMsg = pIt - buf->buffer;
+                        pMsg->szMsg = iter - buf->buffer;
                         memcpy(pMsg->msgRaw, buf->buffer, pMsg->szMsg);
                         commitMsg(buf, pMsg->szMsg);
 
                         ret = 1;
                         break;
                     }
-                    pIt++;    
+                    iter++;    
                 }
             }
         }
@@ -194,16 +194,12 @@ int tcpGetMsg(int socket, struct stIpBuffer *buf, struct stRawMessage *pMsg)
     return ret;
 }
 
-bool sendMsg(int socket, enum msgId msg, ...)
+size_t createMsg(uint8_t *pMsg, enum msgId msg, va_list pVargs)
 {
-    uint8_t  pMsg[MAX_LEN];    
-    uint8_t *pBuf = &pMsg[0];
+    uint8_t *pBuf = pMsg;
     
     const struct stMsgDesc *desc = getMsgDescriptionById(msg);
-    if (!desc) {return -1;}
-
-    va_list  pVargs;
-    va_start(pVargs, msg);
+    if (!desc) {return 0;}
 
     const char *formatIt = desc->format;
     uint8_t    *pBufStart = pBuf;
@@ -268,8 +264,9 @@ bool sendMsg(int socket, enum msgId msg, ...)
             else if ('M' == *formatIt) //string 200 chars max
             {
                 const char *pMsg = (const char*)va_arg(pVargs, char*);
-                strcpy((char*)pBuf, pMsg);
-                pBuf += strlen(pMsg);
+                strncpy((char*)pBuf, pMsg, MAX_MSG_LEN);
+                size_t szMsg = strlen(pMsg);
+                if (szMsg <= MAX_MSG_LEN) { pBuf += szMsg; } else { pBuf += MAX_MSG_LEN; }
             }
         }
 
@@ -278,16 +275,56 @@ bool sendMsg(int socket, enum msgId msg, ...)
 
     *pBuf = 0;
 
+    if ((desc->szMsg) && ((pBuf - pBufStart) != desc->szMsg))
+    {
+        perror("{formatMsg} buffer formatting error!");
+        return 0;
+    }
+
+    return pBuf - pBufStart;
+}
+
+
+bool sendMsg(int socket, enum msgId msg, ...)
+{
+    uint8_t  pMsg[MAX_LEN];    
+
+    va_list  pVargs;
+    va_start(pVargs, msg);
+    size_t szMsg = createMsg(pMsg, msg, pVargs);
     va_end(pVargs);
 
-    if ((pBuf - pBufStart) != desc->szMsg)
+    if (!szMsg)
     {
         perror("{formatMsg} buffer formatting error!");
         return false;
     }
 
-    return desc->szMsg == send(socket, pMsg, desc->szMsg, 0);
+    return szMsg == send(socket, pMsg, szMsg, 0);
 }
+
+bool sendMsgTo(int socket, 
+               const struct sockaddr *addr, 
+               socklen_t addrlen, 
+               enum msgId msg, 
+               ...)
+{
+    uint8_t  pMsg[MAX_LEN];    
+
+    va_list  pVargs;
+    va_start(pVargs, msg);
+    size_t szMsg = createMsg(pMsg, msg, pVargs);
+    va_end(pVargs);
+
+    if (!szMsg)
+    {
+        perror("{formatMsg} buffer formatting error!");
+        return false;
+    }
+
+    return szMsg == sendto(socket, pMsg, szMsg, 0, addr, addrlen);
+}
+
 
 size_t scanMsg(uint8_t *pMsg, enum msgId msg, ...)
 {
@@ -344,7 +381,7 @@ size_t scanMsg(uint8_t *pMsg, enum msgId msg, ...)
                 uint32_t uIp1, uIp2, uIp3, uIp4;
                 uint32_t *pVar = va_arg(pVargs, uint32_t*);
                 if (4 != sscanf((char*)pBuf, "%u.%u.%u.%u", &uIp1, &uIp2, &uIp3, &uIp4))  { return -1; }
-                *pVar = ((uIp1 << 24) & 0xFF) | ((uIp2 << 16) & 0xFF) | ((uIp3 << 8) & 0xFF) | (uIp4 & 0xFF);
+                *pVar = (uIp1 << 24) | (uIp2 << 16) | (uIp3 << 8) | (uIp4 & 0xFF);
                 pBuf += 15;
                 szRet++;
             }
@@ -352,15 +389,21 @@ size_t scanMsg(uint8_t *pMsg, enum msgId msg, ...)
             {
                 uint32_t *pVar = va_arg(pVargs, uint32_t*);
                 if (1 != sscanf((char*)pBuf, "%03u", pVar)) { return -1; }
+                pBuf += 3;
                 szRet++;
             }
             else if ('M' == *formatIt) //string 200 chars max
             {
                 char* pMsg = va_arg(pVargs, char*);
+                size_t szMsg = 0;
                 while ((0 != memcmp(pBuf, TCP_END, END_LEN)) && (0 != memcmp(pBuf, UDP_END, END_LEN)))
                 {
-                    *pMsg = *pBuf;
-                    pMsg++;
+                    if (szMsg < MAX_MSG_LEN)
+                    {
+                        *pMsg = *pBuf;
+                        pMsg++;
+                        szMsg++;
+                    }
                     pBuf++;
                 }
                 *pMsg = 0;

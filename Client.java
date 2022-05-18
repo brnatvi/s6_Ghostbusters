@@ -46,17 +46,55 @@ class Client {
         char[] buf = new char[1024];
         String msg = read(in, buf, 0, 1024);
         
-        TreatTCP.treatMess(msg);
+        TreatTCP treat = new TreatTCP(sockfd);
+        treat.treatMess(msg);
         
     }
   
     //Partie send
     public void sendMessage(PrintWriter out){
-        
         String msg = sc.nextLine();
-        byte[] toSend = SendTCP.sendMess(msg);
+        SendTCP send = new SendTCP();
+        byte[] toSend = send.sendMess(msg);
         out.print(new String(toSend));
         out.flush();
+        // if(msg.substring(0,5).equals("NEWPL") || msg.substring(0,5).equals("REGIS")){ 
+        //     handleUDP(send.getPortUDP());
+        //     handleMulticast(send.getPortUDP(), );
+        // }
+    }
+
+    public void handleUDP(int port){
+        try {
+            sock_udp = new DatagramSocket(port);
+            byte[] data = new byte[218];
+            while(true){
+                DatagramPacket paquet = new DatagramPacket(data, data.length);
+                sock_udp.receive(paquet);
+                String st = new String(paquet.getData(), 0, paquet.getLength()-3);
+                System.out.println(st);
+            }
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }  
+    }
+
+    public void handleMulticast(int port, InetAddress mcastaddr){
+        try {
+            MulticastSocket sock_mult = new MulticastSocket(port);
+            sock_mult.joinGroup(mcastaddr);
+            byte[] data = new byte[218];
+            while(true){
+                DatagramPacket paquet = new DatagramPacket(data, data.length);
+                sock_mult.receive(paquet);
+                String st = new String(paquet.getData(), 0, paquet.getLength()-3);
+                System.out.println(st);
+            }
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
     }
 
     //TODO: vérifier que pseudo est bien 8 caractères

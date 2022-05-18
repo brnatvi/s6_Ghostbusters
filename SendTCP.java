@@ -6,33 +6,76 @@ import java.util.Scanner;
 
 public class SendTCP {
 
+    private int port_udp;
+
+    public int getPortUDP(){
+        return port_udp;
+    }
+    
     // n, m, s
-    public static byte[] sendOneInfoByte(int info){
+    public byte[] sendOneInfoByte(int info){
         byte[] nb = new byte[1];
         nb[0] =  (byte)((info >> 0) & 0xff);
         return nb;
     }
 
+    public byte[] sendByteArray(int val, int length) {
+        byte[] res = new byte[length];
+        int ind = 0;
+        for(int i = length-1; i >= 0; i--){
+            res[ind] = (byte)((val >> 8*i) & 0xff);
+            ind ++;
+        }
+        return res;
+    }
+
+    public char[] sendCharArray(String val, int length){
+        char[] res = new char[length];
+        int ind = length-1;
+        for(int i = val.length()-1; i >= 0; i--){
+            res[ind] = val.charAt(i);
+            ind--;
+        }
+        for(int j = ind ; j >= 0; j--){
+            res[ind] = '0';
+            ind--;
+        }
+        return res;
+    }
+
+    public byte[] charArrayToByteArray(char[] tab){
+        byte[] res = new byte[tab.length];
+        for(int i = 0; i<tab.length; i++){
+            res[i] = (byte) tab[i];
+        }
+        return res;
+    }
+
     // id, port
-    public static String sendString(byte[] id, int len){
+    public String sendString(byte[] id, int len){
         byte[] id_len = new byte[len];
         System.arraycopy(id, 0, id_len, 0, len);
         return new String(id_len);
     }
 
-    public static byte[] sendMess(String msg){
+    public byte[] sendMess(String msg){
         String str_entete = msg.substring(0,5);
         byte[] entete = str_entete.getBytes();
         byte[] space = new byte[1]; space[0] = 42;
         byte[] tcpEnd = (msg.substring(msg.length()-3)).getBytes();
         byte[] toSend = null;
         switch(str_entete){
-            case "NEWPL" :
             case "GAME?":
             case "START":
             case "GLIS?":
             case "IQUIT":
+            case "MALL?":
+            case "SEND?":
                 toSend = msg.getBytes();
+                break;
+            case "NEWPL":
+                toSend = msg.getBytes();
+                port_udp = Integer.parseInt(msg.substring(15,19));
                 break;
             case "REGIS" :
                 byte[] entete_id_port = msg.substring(0,20).getBytes();
@@ -41,11 +84,11 @@ public class SendTCP {
                 System.arraycopy(entete_id_port, 0, toSend, 0, entete_id_port.length);
                 System.arraycopy(m, 0, toSend, entete_id_port.length, 1);
                 System.arraycopy(tcpEnd, 0, toSend, entete_id_port.length+1, 3);
-
+                port_udp = Integer.parseInt(msg.substring(15,19));
                 break;
             case "UNREG" :
             case "SIZE?" :
-            case "LIST?" :
+            case "LIST?" : // utiliser sendByteArray(m, 1)
                 m = sendOneInfoByte(Integer.parseInt(msg.substring(6, msg.length()-3)));
                 toSend = new byte[entete.length + space.length + 1 + tcpEnd.length];
                 System.arraycopy(entete, 0 ,toSend, 0, entete.length);
@@ -53,9 +96,29 @@ public class SendTCP {
                 System.arraycopy(m, 0, toSend, entete.length+1, 1);
                 System.arraycopy(tcpEnd, 0, toSend, entete.length+2, 3);
                 break;
+            case "UPMOV":
+            case "DOMOV":
+            case "LEMOV":
+            case "RIMOV":
+                String d = msg.substring(6, msg.length()-3);  // Integer.parseInt(msg.substring(6, msg.length()-3));
+                byte[] d_byte = charArrayToByteArray(sendCharArray(d,3)); //sendByteArray(d, 3);
+                toSend = new byte[entete.length + space.length + d_byte.length+ tcpEnd.length];
+                System.arraycopy(entete, 0, toSend, 0, entete.length);
+                System.arraycopy(space, 0, toSend, entete.length, 1);
+                System.arraycopy(d_byte, 0, toSend, entete.length+1, d_byte.length);
+                System.arraycopy(tcpEnd, 0, toSend, entete.length+1+d_byte.length, 3);
+                for(byte b: toSend){
+                    System.out.print(b+" ");
+                }
+                System.out.println();
+                break;
+
             
         }
         return toSend;
     }
+
+    
+
 
 }

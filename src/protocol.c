@@ -247,6 +247,7 @@ size_t createMsg(uint8_t *pMsg, enum msgId msg, va_list pVargs)
                         (uint32_t)((uIp >> 8) & 0xFF),
                         (uint32_t)(uIp & 0xFF)
                        );
+
                 for (size_t i = strlen(pIp); i < ip; i++)
                 {
                     pIp[i] = '#';

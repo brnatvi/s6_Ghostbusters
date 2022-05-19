@@ -154,7 +154,7 @@ int launchGame(struct stGamerContext *gContext, struct stGame *game)
                 (uint32_t)game->labirinth.heigh,
                 (uint32_t)game->labirinth.width,
                 (uint32_t)game->labirinth.ghosts->count,
-                (uint32_t)inet_addr (MULTI_CAST_ADDR),
+                ntohl((uint32_t)inet_addr (MULTI_CAST_ADDR)),
                 (uint32_t)ntohs(game->MctAddr.sin_port)
                 );
 

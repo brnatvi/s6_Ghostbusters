@@ -4,9 +4,16 @@ import java.nio.*;
 import java.util.Arrays;
 import java.util.Scanner;
 
-public class SendTCP {
+public class SendTCP extends Thread {
 
     private int port_udp;
+    public String msg;
+    public PrintWriter out;
+
+    public SendTCP(String _msg, PrintWriter _out){
+        this.msg = _msg;
+        this.out = _out;
+    }
 
     public int getPortUDP(){
         return port_udp;
@@ -58,7 +65,9 @@ public class SendTCP {
         return new String(id_len);
     }
 
-    public byte[] sendMess(String msg){
+    //byte[] sendMess(String msg)
+
+    public void run(){
         String str_entete = msg.substring(0,5);
         byte[] entete = str_entete.getBytes();
         byte[] space = new byte[1]; space[0] = 42;
@@ -107,15 +116,14 @@ public class SendTCP {
                 System.arraycopy(space, 0, toSend, entete.length, 1);
                 System.arraycopy(d_byte, 0, toSend, entete.length+1, d_byte.length);
                 System.arraycopy(tcpEnd, 0, toSend, entete.length+1+d_byte.length, 3);
-                for(byte b: toSend){
-                    System.out.print(b+" ");
-                }
-                System.out.println();
+                
                 break;
 
             
         }
-        return toSend;
+        out.print(new String(toSend));
+        out.flush();
+        // return toSend;
     }
 
     

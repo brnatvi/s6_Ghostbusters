@@ -4,12 +4,22 @@ import java.nio.*;
 import java.util.Arrays;
 import java.util.Scanner;
 
-public class TreatTCP {
+public class TreatTCP extends Thread{
 
     public Socket sockfd;
+    public String msg;
+    public int port_mult;
 
-    public TreatTCP(Socket _sockfd){
+    private String ip;
+
+    public TreatTCP(Socket _sockfd, String _msg){
         this.sockfd = _sockfd;
+        this.msg = _msg;
+    }
+
+    // parseip till #
+    public String getIP(){
+        return ip;
     }
 
     public byte[] conditionMet(byte[]tail, int n1){
@@ -83,7 +93,9 @@ public class TreatTCP {
             ));
     }
 
-    public void treatMess(String msg){ // enlever tcpEnd from system.out.println
+    // treatMess(String msg)
+
+    public void run(){ // enlever tcpEnd from system.out.println
         String entete = msg.substring(0,5);
         byte[] tail = parseUntilStars(entete, (msg.substring(5)).getBytes());
         String tcpEnd = "***";
@@ -136,6 +148,14 @@ public class TreatTCP {
                 System.out.println(entete+" "+treatInfoOneByte(tail[1])+" "+treatInfoTwoBytes(Arrays.copyOfRange(tail,3,5))+" "+
                 treatInfoTwoBytes(Arrays.copyOfRange(tail,6,8))+" "+treatInfoOneByte(tail[9])+" "+
                 new String(Arrays.copyOfRange(tail, 11, 34)));
+                // System.out.println(msg);
+                this.ip = msg.substring(16,31);
+                
+                // System.out.println(msg.substring(32,36));
+                
+                this.port_mult = Integer.parseInt(msg.substring(32, 36));
+
+
                 String posit = (msg.substring(tail.length+5));
                 
                 byte[] tmp = parseUntilStars("POSIT", msg.substring(tail.length+5).getBytes());

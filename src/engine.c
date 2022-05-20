@@ -31,7 +31,7 @@ void *routine_game(void *args)
     while (false == isExit)
     {
         pthread_mutex_lock(&game->gameLock);
-        if ((!game->isLaunched) || ((game->labirinth.ghosts) && (!game->labirinth.ghosts->count)))
+        if ((!game->isLaunched) || (!game->labirinth.ghosts) || (!game->labirinth.ghosts->count))
         {
             isExit = true;
         }
@@ -97,8 +97,9 @@ void *routine_game(void *args)
                          (struct sockaddr*)&game->MctAddr, 
                          sizeof(game->MctAddr), 
                          eUdpMsgGHOST, 
-                         (uint32_t)ghost->x, 
-                         (uint32_t)ghost->y);
+                         (uint32_t)ghost->y, //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
+                         (uint32_t)ghost->x 
+                         );
 
                 ghostEl = ghostEl->next;
             }
@@ -111,7 +112,7 @@ void *routine_game(void *args)
     }
 
     pthread_mutex_lock(&game->gameLock);
-    if (game->lstPlayers->count)
+    if (game->lstPlayers && game->lstPlayers->count)
     {
         struct element_t *gamerEl = game->lstPlayers->first;
         struct stPlayer  *Winner   = NULL;
@@ -137,7 +138,6 @@ void *routine_game(void *args)
     log_info("Stop game %u thread", (uint32_t)game->idGame);
     pthread_mutex_unlock(&game->gameLock);
 
-
     return NULL;
 }
 
@@ -147,47 +147,59 @@ int launchGame(struct stGamerContext *gContext, struct stGame *game)
     int rez = EXIT_SUCCESS;
 
     pthread_mutex_lock(&game->gameLock);
-    struct element_t *playerEl = game->lstPlayers->first;
-    while (playerEl)
+    bool startThread = false;
+    if (!game->isLaunched)
     {
-        struct stPlayer *player = (struct stPlayer *)(playerEl->data);
-        
-        sendMsg(player->tcpSocket, eTcpMsgWELCO, 
-                (uint32_t)game->idGame,
-                (uint32_t)game->labirinth.heigh,
-                (uint32_t)game->labirinth.width,
-                (uint32_t)game->labirinth.ghosts->count,
-                ntohl((uint32_t)inet_addr (MULTI_CAST_ADDR)),
-                (uint32_t)ntohs(game->MctAddr.sin_port)
-                );
+        struct element_t *playerEl = game->lstPlayers->first;
+        while (playerEl)
+        {
+            struct stPlayer *player = (struct stPlayer *)(playerEl->data);
+            
+            sendMsg(player->tcpSocket, eTcpMsgWELCO, 
+                    (uint32_t)game->idGame,
+                    (uint32_t)game->labirinth.heigh,
+                    (uint32_t)game->labirinth.width,
+                    (uint32_t)game->labirinth.ghosts->count,
+                    ntohl((uint32_t)inet_addr (MULTI_CAST_ADDR)),
+                    (uint32_t)ntohs(game->MctAddr.sin_port)
+                    );
 
-        printf("Player %s, %u, %u\n",
-                player->id,
-                (uint32_t)player->x,
-                (uint32_t)player->y
-                );
+            printf("Player %s, %u, %u\n",
+                   player->id,
+                   (uint32_t)player->x,
+                   (uint32_t)player->y 
+                  );
 
-        sendMsg(player->tcpSocket, eTcpMsgPOSIT, 
-                player->id,
-                (uint32_t)player->x,
-                (uint32_t)player->y
-                );
+            sendMsg(player->tcpSocket, eTcpMsgPOSIT, 
+                    player->id,
+                    (uint32_t)player->y, //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
+                    (uint32_t)player->x
+                    );
 
-        playerEl = playerEl->next;
+            playerEl = playerEl->next;
+        }
+
+        game->isLaunched = true;
+        startThread      = true;
     }
-
-    game->isLaunched = true;
-
     pthread_mutex_unlock(&game->gameLock);
 
-    pthread_t th;
-    
-    int phRez = pthread_create(&th, NULL, routine_game, (void *)game);
-    if (phRez != 0) // error
+    if (startThread)
     {
-        log_error("pthread_create failure"); 
-        rez = EXIT_FAILURE;
-        goto lExit;
+        pthread_t th;
+        int phRez = pthread_create(&th, NULL, routine_game, (void *)game);
+        if (phRez != 0) // error
+        {
+            log_error("pthread_create failure"); 
+            rez = EXIT_FAILURE;
+            goto lExit;
+        }
+        else
+        {
+            pthread_mutex_lock(&game->gameLock);
+            game->thread = th;
+            pthread_mutex_unlock(&game->gameLock);
+        }
     }
     
 lExit:    

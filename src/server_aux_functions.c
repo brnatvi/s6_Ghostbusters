@@ -558,7 +558,12 @@ bool processGLIS(struct stGamerContext *gContext)
                 {
                     struct stPlayer *gamer = (struct stPlayer *)(gamerEl->data);
 
-                    if (!sendMsg(tcpSocket, eTcpMsgGPLYR, gamer->id, (uint32_t)gamer->x, (uint32_t)gamer->y, (uint32_t)gamer->score))
+                    if (!sendMsg(tcpSocket, 
+                                 eTcpMsgGPLYR, 
+                                 gamer->id, 
+                                 (uint32_t)gamer->y, //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
+                                 (uint32_t)gamer->x, 
+                                 (uint32_t)gamer->score))
                     {
                         log_error("eTcpMsgGPLYR sending failure!");
                         bRet = false;
@@ -627,13 +632,14 @@ bool processMOVE(struct stGamerContext *gContext, enum msgId Id, uint8_t *bufer)
                     uGhost++;
 
                     sendMsgTo(game->udpMctSocket,
-                                (struct sockaddr*)&game->MctAddr,
-                                sizeof(game->MctAddr),
-                                eUdpMsgSCORE,
-                                gContext->player->id, 
-                                (uint32_t)gContext->player->score,
-                                (uint32_t)ghost->x,
-                                (uint32_t)ghost->y);
+                              (struct sockaddr*)&game->MctAddr,
+                              sizeof(game->MctAddr),
+                              eUdpMsgSCORE,
+                              gContext->player->id, 
+                              (uint32_t)gContext->player->score,
+                              (uint32_t)ghost->y, //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
+                              (uint32_t)ghost->x
+                              );
 
                     struct element_t* ghostElNext = ghostEl->next;
                     free(ghost);
@@ -651,16 +657,16 @@ bool processMOVE(struct stGamerContext *gContext, enum msgId Id, uint8_t *bufer)
         {
             sendMsg(gContext->player->tcpSocket, 
                     eTcpMsgMOVEF, 
+                    (uint32_t)gContext->player->y, //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
                     (uint32_t)gContext->player->x, 
-                    (uint32_t)gContext->player->y,
                     (uint32_t)gContext->player->score);
         }
         else
         {
             sendMsg(gContext->player->tcpSocket, 
                     eTcpMsgMOVEA, 
-                    (uint32_t)gContext->player->x, 
-                    (uint32_t)gContext->player->y
+                    (uint32_t)gContext->player->y, //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
+                    (uint32_t)gContext->player->x 
                     );
         }
     }
@@ -854,6 +860,7 @@ void freeGame(struct stGame *pGame)
         CLOSE(pGame->udpMsgSocket);
         CLOSE(pGame->udpMctSocket);
 
+        log_info("Free game #%d players", pGame->idGame);
         // free lstPlayers
         while (pGame->lstPlayers->first)
         {
@@ -863,6 +870,7 @@ void freeGame(struct stGame *pGame)
         }
         FREE_MEM(pGame->lstPlayers);
 
+        log_info("Free game #%d ghosts", pGame->idGame);
         while (pGame->labirinth.ghosts->first)
         {
             struct stGhost *ghost = (struct stGhost *)(pGame->labirinth.ghosts->first->data);
@@ -882,10 +890,12 @@ void freeGame(struct stGame *pGame)
 
         if (bRunning)
         {
+            log_info("Wait for game #%d thread", pGame->idGame);
             pthread_join(pGame->thread, NULL);
         }
 
         pthread_mutex_destroy(&pGame->gameLock);
+        log_info("Release game #%d memory", pGame->idGame);
         FREE_MEM(pGame);
     }
 }
@@ -966,6 +976,7 @@ bool removeGamePlayer(struct stGamerContext *gContext, struct stPlayer *player)
     {
         if (((struct stPlayer *)pIter->data) == player)
         {
+            log_info("removeGamePlayer(%s)!", ((struct stPlayer *)pIter->data)->id);
             removeEl(player->pGame->lstPlayers, pIter);
             player->pGame = NULL;
             bFound = true;

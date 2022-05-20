@@ -21,38 +21,44 @@
     #define NULL_DESCRIPTOR -1
 #endif    
 
-int tcp_connect(const char *pIp, uint16_t port)
+int tcp_connect(const char *hostname, uint16_t port)
 {
     int ret = NULL_DESCRIPTOR;
-    struct sockaddr_in socAddress;
-    memset(&socAddress, 0, sizeof(struct sockaddr_in));
 
-    socAddress.sin_family      = AF_INET;
-    socAddress.sin_port        = htons(port);
-    socAddress.sin_addr.s_addr = inet_addr(pIp);
+	struct addrinfo hints, *servinfo, *p;
+	int rv;
 
-    ret = socket(AF_INET, SOCK_STREAM, 0);
+    char pPort[8];
+    sprintf(pPort, "%u", (uint32_t)port);
 
-    if (NULL_DESCRIPTOR == ret)
-    {
-        return NULL_DESCRIPTOR;
-    }
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family   = AF_INET; // use AF_INET6 to force IPv6
+	hints.ai_socktype = SOCK_STREAM;
 
-    if (connect(ret, (struct sockaddr *)&socAddress, sizeof(struct sockaddr_in)))
-    {
-        close(ret);
-        ret = NULL_DESCRIPTOR;
-    }
-    
+	if (getaddrinfo( hostname , pPort , &hints , &servinfo) != 0)
+	{
+		return ret;
+	}
+
+	// loop through all the results and connect to the first we can
+	for(p = servinfo; p != NULL; p = p->ai_next)
+	{
+        ret = socket(AF_INET, SOCK_STREAM, 0);
+        if (NULL_DESCRIPTOR == ret)
+        {
+            break;
+        }
+
+        if (connect(ret, p->ai_addr, sizeof(struct sockaddr_in)))
+        {
+            close(ret);
+            ret = NULL_DESCRIPTOR;
+        }
+	}
+
+	freeaddrinfo(servinfo); 
     return ret;
 }
-
-    //multi-cast
-    //https://gist.github.com/hostilefork/f7cae3dc33e7416f2dd25a402857b6c6
-    //http://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml
-    //https://stackoverflow.com/questions/236231/how-do-i-choose-a-multicast-address-for-my-applications-use
-    //https://man.openbsd.org/getsockname.2
-
 
 void tcp_disconnect(int iSocket)
 {
@@ -144,6 +150,11 @@ bool get_ip(int iSocket, char *pIp, size_t szIp)
 }
 
 
+//multi-cast
+//https://gist.github.com/hostilefork/f7cae3dc33e7416f2dd25a402857b6c6
+//http://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml
+//https://stackoverflow.com/questions/236231/how-do-i-choose-a-multicast-address-for-my-applications-use
+//https://man.openbsd.org/getsockname.2
 int udp_make_socket(const char *pIp, uint16_t uMaxPort, uint16_t *pPort)
 {
     if ((!pIp) || (!pPort))

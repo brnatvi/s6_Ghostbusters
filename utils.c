@@ -12,14 +12,10 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void read_input(char *pText, size_t text)
 {
-    if (fgets(pText, sizeof(text), stdin) == NULL)
+    while (text--)
     {
-        pText[0] = 0;
-    }
-
-    while (*pText)    
-    {
-        if ((*pText == '\r') || (*pText == '\n'))
+        *pText = getchar();
+        if ((*pText == '\r') || (*pText == '\n') || (0 == text))
         {
             *pText = 0; 
             break;    

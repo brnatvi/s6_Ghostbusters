@@ -16,16 +16,16 @@ int main(int argc, char **argv)
     if ((argc != 3) || (0 == strcmp(argv[1], "--help")))
     {
         printf("Ghostbusters game, welcome!\nRun:\n");      
-        printf("> ./ghost_client <server IP adresse> <player id>\n");
-        printf("> Example: ./ghost_client 127.0.0.1 Pernata1\n");
-        printf("> player_id - must contain 8 characters long\n");
+        printf("> ./ghost_client <server hostname> <player id>\n");
+        printf("> Example: ./ghost_client locomotive Pernata1\n");
+        printf("> player_id - hase to be 8 characters long\n");
         return 0;
     }
 
     pIp = argv[1];
     if (strlen(argv[2]) != USER_ID_LEN)
     {
-        printf("ERROR: player_id - must be 8 characters long\n");
+        printf("ERROR: player_id hase to be 8 characters long\n");
         return 0;
     }
     strcpy(stContext.userId, argv[2]);

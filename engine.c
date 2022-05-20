@@ -137,11 +137,11 @@ void cheatGameSession(struct stContext *pCtx)
             uint32_t x, y;
             if (stRawMsg.eMsg == eTcpMsgMOVEA)
             {
-                scanMsg(stRawMsg.pMsgRaw, eTcpMsgMOVEA, &x, &y);
+                scanMsg(stRawMsg.pMsgRaw, eTcpMsgMOVEA, &y, &x); //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
             }
             else if (stRawMsg.eMsg == eTcpMsgMOVEF)
             {
-                scanMsg(stRawMsg.pMsgRaw, eTcpMsgMOVEF, &x, &y, &pCtx->stGameSet.score);
+                scanMsg(stRawMsg.pMsgRaw, eTcpMsgMOVEF, &y, &x, &pCtx->stGameSet.score); //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
             }
 
             if ((pCtx->stGameSet.myX == x) && (pCtx->stGameSet.myY == y))
@@ -524,7 +524,7 @@ void startGame(struct stContext *pCtx)
 
             if ((bSuccess) && (stMsg.eMsg == eTcpMsgWELCO))
             {
-                bSuccess = (6 == scanMsg(stMsg.pMsgRaw, eTcpMsgWELCO, &stab, &stab, &stab, &f, &mctIp, &mctPort));      //question
+                bSuccess = (6 == scanMsg(stMsg.pMsgRaw, eTcpMsgWELCO, &stab, &stab, &stab, &f, &mctIp, &mctPort));
             }
 
             if (bSuccess)
@@ -535,7 +535,7 @@ void startGame(struct stContext *pCtx)
             if ((bSuccess) && (stMsg.eMsg == eTcpMsgPOSIT))
             {
                 char pId[USER_ID_LEN+1];
-                bSuccess = (3 == scanMsg(stMsg.pMsgRaw, eTcpMsgPOSIT, pId, &x, &y));
+                bSuccess = (3 == scanMsg(stMsg.pMsgRaw, eTcpMsgPOSIT, pId, &y, &x)); //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
             }
 
             if (bSuccess)
@@ -640,8 +640,8 @@ void updatePlayersEx(struct stContext *pCtx)
                         if (4 == scanMsg(stRawMsg.pMsgRaw, 
                                          eTcpMsgGPLYR, 
                                          &pCtx->stGameSet.pPlayers[i].plId,
+                                         &pCtx->stGameSet.pPlayers[i].plY, //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
                                          &pCtx->stGameSet.pPlayers[i].plX,
-                                         &pCtx->stGameSet.pPlayers[i].plY,
                                          &pCtx->stGameSet.pPlayers[i].score
                                         )
                         )
@@ -675,7 +675,7 @@ void printPlayersEx(struct stContext *pCtx)
 
     for (uint32_t i = 0; i < pCtx->stGameSet.countPlayers; i++)
     {
-        printf(" #%d [%s] at %ux%u, score %u",
+        printf(" #%d [%s] at %ux%u, score %u\n",
                i,
                pCtx->stGameSet.pPlayers[i].plId,
                pCtx->stGameSet.pPlayers[i].plX,
@@ -719,7 +719,7 @@ void receiveMultiCastMessages(struct stContext *pCtx)
         if (stRawMsg.eMsg == eUdpMsgGHOST)
         {
             uint32_t x, y;
-            if (2 == scanMsg(stRawMsg.pMsgRaw, eUdpMsgGHOST, &x, &y))
+            if (2 == scanMsg(stRawMsg.pMsgRaw, eUdpMsgGHOST, &y, &x)) //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
             {
                 if (fantomIndex >= pCtx->stGameSet.fantomsMax)
                 {
@@ -763,6 +763,23 @@ void receiveMultiCastMessages(struct stContext *pCtx)
             printf("We have a winner %s!! the score is %u\n", pId, score);
             printf("+++++++++++++++++++++++++++++++++++++++++++++++\n");
             pCtx->bExit = true;
+        }
+        else if (stRawMsg.eMsg == eUdpMsgSCORE)
+        {
+            char pId[USER_ID_LEN+1];
+            uint32_t score = 0, x = 0, y = 0;
+            if (4 == scanMsg(stRawMsg.pMsgRaw, eUdpMsgSCORE, pId, &score, &y, &x))
+            {
+                printf("\nPlayer %s catch ghost at %ux%u, new score is %u!!\n", pId, x, y, score);
+                for (uint32_t i = 0; i < pCtx->stGameSet.countPlayers; i++)
+                {
+                    if (0 == strcmp(pCtx->stGameSet.pPlayers[i].plId, pId))
+                    {
+                        pCtx->stGameSet.pPlayers[i].score = score;
+                        break;    
+                    }
+                }
+            }
         }
     }
 
@@ -880,6 +897,71 @@ void printMaze(struct stContext *pCtx)
     setTerminalTextColor(DEFAULT_TERM_COLOR);
 }
 
+void sendUserMessage(struct stContext *pCtx)
+{
+    printf("Available addressee: \n");
+    for (uint32_t i = 0; i < pCtx->stGameSet.countPlayers; i++)
+    {
+        printf(" #%d [%s]\n", i, pCtx->stGameSet.pPlayers[i].plId);
+    }
+    printf(" #%d All\n", (uint32_t)pCtx->stGameSet.countPlayers);
+
+    printf("Please type addressee index: ");
+    fflush(stdout);
+    uint32_t index = read_input_uint();
+
+    if (index > pCtx->stGameSet.countPlayers)
+    {
+       printf("ERROR, index %u is out of range [0 .. %u]\n", index, (uint32_t)pCtx->stGameSet.countPlayers);
+       return;
+    }
+
+    printf("Please enter message (200 chars max): ");
+    fflush(stdout);
+
+    char message[MSG_MAX_TXT_LEN+64];
+    read_input(message, sizeof(message));
+
+    if (strstr(message, MSG_TCP_END) || strstr(message, MSG_UDP_END))
+    {
+        printf("ERROR, message contains unsupported characters *** or +++\n");
+        return;
+    }
+
+    if (strlen(message) > MSG_MAX_TXT_LEN)
+    {
+        message[MSG_MAX_TXT_LEN] = 0;
+    }
+
+    struct stRawMessage stRawMsg;
+    if (index == pCtx->stGameSet.countPlayers)
+    {
+        sendMsg(pCtx->tcpSocket, eTcpMsgMALLQ, message);
+        if (socketReadMsg(pCtx->tcpSocket, &pCtx->stTcpBuf, &stRawMsg))
+        {
+            if (stRawMsg.eMsg != eTcpMsgMALLA)
+            {
+                log_error("Receive unexpected message %d\n", stRawMsg.eMsg);
+            }
+        }   
+    }
+    else
+    {
+        sendMsg(pCtx->tcpSocket, eTcpMsgSENDQ, pCtx->stGameSet.pPlayers[index].plId, message);
+
+        if (socketReadMsg(pCtx->tcpSocket, &pCtx->stTcpBuf, &stRawMsg))
+        {
+            if (stRawMsg.eMsg == eTcpMsgSENDA)
+            {
+            }
+            else if (stRawMsg.eMsg == eTcpMsgNSEND)
+            {
+                log_error("Can't send message to player \"%s\"", pCtx->stGameSet.pPlayers[index].plId);
+            }
+        }   
+    }
+}
+
 // main function
 void play(struct stContext *pCtx)
 {
@@ -914,6 +996,7 @@ void play(struct stContext *pCtx)
             printf("7 -> On/off cheat mode\n");
             printf("8 -> Print messages\n");
             printf("9 -> print info\n");
+            printf("m -> send message\n");
             printf("0 -> Exit game\n");
             printf("==========================\n");
             printf("Enter your choise: ");
@@ -964,11 +1047,11 @@ void play(struct stContext *pCtx)
                     uint32_t uX, uY;
                     if (stRawMsg.eMsg == eTcpMsgMOVEA)
                     {
-                        scanMsg(stRawMsg.pMsgRaw, eTcpMsgMOVEA, &uX, &uY);
+                        scanMsg(stRawMsg.pMsgRaw, eTcpMsgMOVEA, &uY, &uX); //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
                     }
                     else if (stRawMsg.eMsg == eTcpMsgMOVEF)
                     {
-                        scanMsg(stRawMsg.pMsgRaw, eTcpMsgMOVEF, &uX, &uY, &pCtx->stGameSet.score);
+                        scanMsg(stRawMsg.pMsgRaw, eTcpMsgMOVEF, &uY, &uX, &pCtx->stGameSet.score); //TO RESPECT PROTOCOL AND RESPECT **Descartes** LEGACY!
                     }
                     else
                     {
@@ -1044,7 +1127,7 @@ void play(struct stContext *pCtx)
             while (pCtx->stGameSet.stListMsg.first)
             {
                 struct stMsg *pMsg = (struct stMsg *)pCtx->stGameSet.stListMsg.first->data;
-                printf("Message from %s\n------------------------------\n%s\n",
+                printf("Message from %s\n------------------------------\n%s\n------------------------------\n",
                        pMsg->pId,
                        pMsg->pMsg
                       );
@@ -1063,6 +1146,10 @@ void play(struct stContext *pCtx)
                    (uint32_t)pCtx->stGameSet.myX,
                    (uint32_t)pCtx->stGameSet.myY
                   );
+        }
+        else if (('m' == ch) || ('M' == ch))
+        {
+            sendUserMessage(pCtx);
         }
     }
 }

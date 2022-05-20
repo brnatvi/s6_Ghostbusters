@@ -1,5 +1,4 @@
-#ifndef CLI_WND
-#define CLI_WND
+#pragma once
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,11 +28,9 @@ enum eTermColor
     eTcWhite        = 15
 };
 
-void      read_input_text(char *pText, size_t text);
+void      read_input(char *pText, size_t text);
 uint32_t  read_input_uint();
 bool      isKeyPressed(void);
 uint32_t  getTerminalWidth();
 uint32_t  getTerminalHeight();
 void      setTerminalTextColor(enum eTermColor eFg);
-
-#endif //CLI_WND

@@ -115,4 +115,5 @@ bool                    sendMsgTo(int socket,
                                   enum msgId msg, 
                                   ...);
 size_t                  scanMsg(uint8_t *pMsg, enum msgId msg, ...);
+void                    printMsg(uint8_t *pMsg, const char *pPrefix);
 

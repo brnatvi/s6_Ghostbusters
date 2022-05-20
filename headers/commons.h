@@ -9,6 +9,7 @@
 #include <time.h>
 
 #include "list.h"
+#include "log.h"
 #include "maze_generator.h"
 #include "protocol.h"
 
@@ -16,6 +17,11 @@
 #define BUF_SIZE        6098
 
 #define MULTI_CAST_ADDR "239.255.255.250"
+#define GHOST_MOVEMENT_INTERVAL_MS 10000
+
+//activate to show protocol messages
+#define VERBOSE_TCP_PROTOCOL
+#define VERBOSE_UDP_PROTOCOL
 
 ////////////////////////////////// Structures ////////////////////////////////////
 
@@ -116,5 +122,30 @@ void printPlayers(struct stGamerContext *gContext, const char* pCaller);
 
 #define CLOSE(File) if (File >= 0) {close(File); File = -1; }
 #define FREE_MEM(Mem) if (Mem) {free(Mem); Mem = NULL;}
+
+
+enum eTermColor
+{
+    //https://en.wikipedia.org/wiki/ANSI_escape_code
+    eTcBlack        = 0,
+    eTcBlue         = 12,
+    eTcGreen        = 40,
+    eTcCyan         = 51,
+    eTcRed          = 124,
+    eTcMagenta      = 129,
+    eTcBrown        = 94,
+    eTcLightGray    = 252,
+    eTcDarkGray     = 244,
+    eTcLightBlue    = 33,
+    eTcLightGreen   = 48,
+    eTcLightCyan    = 195,
+    eTcLightRed     = 196,
+    eTcLightMagenta = 204,
+    eTcYellow       = 11,
+    eTcWhite        = 15
+};
+
+#define SET_TERMINAL_COLOR(X) printf("\x1b[38;5;%dm", X);
+#define DEFAULT_TERM_COLOR eTcWhite
 
 #endif //COMMONS

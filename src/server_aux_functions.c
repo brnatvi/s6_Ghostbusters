@@ -19,7 +19,7 @@ int createTcpConnection(struct stServerContext *context, int port)
     context->tcpListenSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (context->tcpListenSocket < 0)
     {
-        perror("P: cannot create socket");
+        log_error("P: cannot create socket");
         rez = -1;
         goto lExit;
     }
@@ -30,14 +30,14 @@ int createTcpConnection(struct stServerContext *context, int port)
     rez = bind(context->tcpListenSocket, (struct sockaddr *)&context->sockAddress, sizeof(struct sockaddr_in));
     if (rez < 0)
     {
-        perror("P: bind failure");
+        log_error("P: bind failure");
         goto lExit;
     }
 
     rez = listen(context->tcpListenSocket, 0);
     if (rez < 0)
     {
-        perror("P:listen failure");
+        log_error("P:listen failure");
         goto lExit;
     }
 
@@ -59,7 +59,7 @@ int acceptAndCommunication(struct stServerContext *context)
     tcpSocket = accept(context->tcpListenSocket, (struct sockaddr *)&context->sockAddress, &len);
     if (tcpSocket < 0) // error
     {
-        perror("P: accept failure");
+        log_error("P: accept failure");
         rez = EXIT_FAILURE;
     }
     else // session started
@@ -68,7 +68,7 @@ int acceptAndCommunication(struct stServerContext *context)
         struct stGamerContext *pGamerContext = (struct stGamerContext *)malloc(sizeof(struct stGamerContext));
         if (!pGamerContext)
         {
-            perror("malloc gamer context failure");
+            log_fatal("malloc gamer context failure");
             rez = EXIT_FAILURE;
             goto lExit;
         }
@@ -78,7 +78,7 @@ int acceptAndCommunication(struct stServerContext *context)
 
         if (!pGamerContext->player)
         {
-            perror("malloc gamer failure");
+            log_fatal("malloc gamer failure");
             rez = EXIT_FAILURE;
             goto lExit;
         }
@@ -87,7 +87,7 @@ int acceptAndCommunication(struct stServerContext *context)
         int phRez = pthread_create(&th, NULL, routine_com, (void *)pGamerContext);
         if (phRez != 0) // error
         {
-            perror("P: pthread_create failure");
+            log_fatal("P: pthread_create failure");
             rez = EXIT_FAILURE;
             goto lExit;
         }
@@ -115,8 +115,7 @@ void *routine_com(void *args)
         int iMsgRes = tcpGetMsg(tcpSocket, &pGamerContext->player->stTcpBuf, &stMsg);
         if (iMsgRes < 0)
         {
-            fprintf(stderr, "{%s} Socket/Communication error, close connection for player [%s]!\n", 
-                    __FUNCTION__, pGamerContext->player->id);
+            log_info("Socket/Communication error, close connection for player [%s]!\n", pGamerContext->player->id);
             break;
         }
         else if (iMsgRes == 0)
@@ -218,7 +217,7 @@ bool sendGames(struct stGamerContext *gContext)
     //send info about all lstGames
     if (!sendMsg(tcpSocket, eTcpMsgGAMES, uGamecCount))
     {
-        perror("GAMES<n>*** sending failure");
+        log_error("GAMES<n>*** sending failure");
         bRet = false;
     }
 
@@ -234,7 +233,7 @@ bool sendGames(struct stGamerContext *gContext)
             {      
                 if (!sendMsg(tcpSocket, eTcpMsgOGAME, (uint32_t)game->idGame, (uint32_t)game->lstPlayers->count))
                 {
-                    perror("OGAME<m><s>*** for sending failure");
+                    log_error("OGAME<m><s>*** for sending failure");
                     bRet = false;
                     break;
                 }
@@ -263,7 +262,7 @@ bool processNEWPL(struct stGamerContext *gContext, uint8_t *bufer)
         uint32_t port;
         if (2 != scanMsg(bufer, eTcpMsgNEWPL, gContext->player->id, &port))
         {
-            fprintf(stderr, "{%s} NEWPL scan error!", __FUNCTION__);
+            log_error("NEWPL scan error!");
             return false;
         }
         gContext->player->portUDP = (uint16_t)port;
@@ -275,7 +274,7 @@ bool processNEWPL(struct stGamerContext *gContext, uint8_t *bufer)
         
         if (!sendMsg(tcpSocket, eTcpMsgREGOK, (uint32_t)newGame->idGame))
         {
-            fprintf(stderr, "{%s} REGOK sending failure!", __FUNCTION__);
+            log_error("REGOK sending failure!");
             return false;
         }
     }
@@ -283,7 +282,7 @@ bool processNEWPL(struct stGamerContext *gContext, uint8_t *bufer)
     {
         if (!sendMsg(tcpSocket, eTcpMsgREGNO))
         {
-            fprintf(stderr, "{%s} REGNO sending failure!", __FUNCTION__);
+            log_error("REGNO sending failure!");
             return false;
         }
     }
@@ -323,7 +322,7 @@ bool processREGIS(struct stGamerContext *gContext, uint8_t *bufer)
                     isFound = 1;
                     if (!sendMsg(tcpSocket, eTcpMsgREGOK, m))
                     {
-                        fprintf(stderr, "{%s} REGOK sending failure!", __FUNCTION__);
+                        log_error("REGOK sending failure!");
                         bRet = false;
                     }
                 }
@@ -339,14 +338,14 @@ bool processREGIS(struct stGamerContext *gContext, uint8_t *bufer)
             bRet = true;
             if (!sendMsg(tcpSocket, eTcpMsgREGNO))
             {
-                fprintf(stderr, "{%s} REGNO sending failure!", __FUNCTION__);
+                log_error("REGNO sending failure!");
                 bRet = false;
             }
         }
     }
     else
     {
-        fprintf(stderr, "{%s} REGIS scan error!", __FUNCTION__);
+        log_error("REGIS scan error!");
     }
 
     return bRet;
@@ -364,7 +363,7 @@ bool processUNREG(struct stGamerContext *gContext, uint8_t *bufer)
 
         if (!sendMsg(tcpSocket, eTcpMsgUNROK, m))
         {
-            fprintf(stderr, "{%s} UNROK sending failure!", __FUNCTION__);
+            log_error("UNROK sending failure!");
             bRet = false;
         }
     }
@@ -373,7 +372,7 @@ bool processUNREG(struct stGamerContext *gContext, uint8_t *bufer)
         bRet = true;
         if (!sendMsg(tcpSocket, eTcpMsgDUNNO))
         {
-            fprintf(stderr, "{%s} DUNNO sending failure!", __FUNCTION__);
+            log_error("DUNNO sending failure!");
             bRet = false;
         }
     }
@@ -403,7 +402,7 @@ bool processSIZE_(struct stGamerContext *gContext, uint8_t *bufer)
                 bRet = true;
                 if (!sendMsg(tcpSocket, eTcpMsgSIZEA, m, (uint32_t)game->labirinth.heigh, (uint32_t)game->labirinth.width))
                 {
-                    fprintf(stderr, "{%s} SIZE! sending failure!", __FUNCTION__);
+                    log_error("SIZE! sending failure!");
                     bRet = false;
                 }
 
@@ -419,7 +418,7 @@ bool processSIZE_(struct stGamerContext *gContext, uint8_t *bufer)
             bRet = true;
             if (!sendMsg(tcpSocket, eTcpMsgDUNNO))
             {
-                fprintf(stderr, "{%s} DUNNO sending failure!", __FUNCTION__);
+                log_error("DUNNO sending failure!");
                 bRet = false;
             }
         }
@@ -455,7 +454,7 @@ bool processLIST_(struct stGamerContext *gContext, uint8_t *bufer)
                 isFound = 1;
                 if (!sendMsg(tcpSocket, eTcpMsgLISTA, m, (uint32_t)game->lstPlayers->count))
                 {
-                    fprintf(stderr, "{%s} LISTA sending failure!", __FUNCTION__);
+                    log_error("LISTA sending failure!");
                     bRet = false;
                 }
 
@@ -469,7 +468,7 @@ bool processLIST_(struct stGamerContext *gContext, uint8_t *bufer)
 
                         if (!sendMsg(tcpSocket, eTcpMsgPLAYR, gamer->id))
                         {
-                            fprintf(stderr, "{%s} PLAYR sending failure!", __FUNCTION__);
+                            log_error("PLAYR sending failure!");
                             bRet = false;
                         }
                         gamerEl = gamerEl->next;
@@ -488,7 +487,7 @@ bool processLIST_(struct stGamerContext *gContext, uint8_t *bufer)
         bRet = true;
         if (!sendMsg(tcpSocket, eTcpMsgDUNNO))
         {
-            fprintf(stderr, "{%s} DUNNO sending failure!", __FUNCTION__);
+            log_error("DUNNO sending failure!");
             bRet = false;
         }
     }
@@ -526,7 +525,7 @@ bool processSTART(struct stGamerContext *gContext, uint8_t *bufer)
     {
         if (!sendMsg(tcpSocket, eTcpMsgNMEMB))
         {
-            fprintf(stderr, "{%s} NMEMB sending failure!", __FUNCTION__);
+            log_error("NMEMB sending failure!");
             bRet = false;
         }
     }        
@@ -549,7 +548,7 @@ bool processGLIS(struct stGamerContext *gContext)
 
             if (!sendMsg(tcpSocket, eTcpMsgGLISA, (uint32_t)game->lstPlayers->count))
             {
-                fprintf(stderr, "{%s} eTcpMsgGLISA sending failure!", __FUNCTION__);
+                log_error("eTcpMsgGLISA sending failure!");
                 bRet = false;
             }
             if (bRet)
@@ -561,7 +560,7 @@ bool processGLIS(struct stGamerContext *gContext)
 
                     if (!sendMsg(tcpSocket, eTcpMsgGPLYR, gamer->id, (uint32_t)gamer->x, (uint32_t)gamer->y, (uint32_t)gamer->score))
                     {
-                        fprintf(stderr, "{%s} eTcpMsgGPLYR sending failure!", __FUNCTION__);
+                        log_error("eTcpMsgGPLYR sending failure!");
                         bRet = false;
                     }
                     gamerEl = gamerEl->next;
@@ -581,13 +580,13 @@ bool processMOVE(struct stGamerContext *gContext, enum msgId Id, uint8_t *bufer)
 
     if (1 != scanMsg(bufer, Id, &shift))
     {
-        fprintf(stderr, "{%s} eTcpMsgMOVE scan failure!", __FUNCTION__);
+        log_error("eTcpMsgMOVE scan failure!");
         return false;
     }
 
     if (!gContext->player->pGame)
     {
-        fprintf(stderr, "{%s} Game isn't statred!", __FUNCTION__);
+        log_error("Game isn't statred!");
         return false;
     }
 
@@ -676,13 +675,13 @@ bool processMALL_(struct stGamerContext *gContext, uint8_t *bufer)
 
     if (1 != scanMsg(bufer, eTcpMsgMALLQ, pMsg))
     {
-        fprintf(stderr, "{%s} eTcpMsgMALLQ scan failure!", __FUNCTION__);
+        log_error("eTcpMsgMALLQ scan failure!");
         return false;
     }
 
     if (!gContext->player->pGame)
     {
-        fprintf(stderr, "{%s} Game isn't statred!", __FUNCTION__);
+        log_error("Game isn't statred!");
         return false;
     }
 
@@ -716,13 +715,13 @@ bool processSEND_(struct stGamerContext *gContext, uint8_t *bufer)
 
     if (2 != scanMsg(bufer, eTcpMsgSENDQ, pPlayerId, pMsg))
     {
-        fprintf(stderr, "{%s} eTcpMsgSENDQ scan failure!", __FUNCTION__);
+        log_error("eTcpMsgSENDQ scan failure!");
         return false;
     }
 
     if (!gContext->player->pGame)
     {
-        fprintf(stderr, "{%s} Game isn't statred!", __FUNCTION__);
+        log_error("Game isn't statred!");
         return false;
     }
 
@@ -784,7 +783,7 @@ struct stGame *createGame(struct stGamerContext *gContext)
     struct stGame *game = (struct stGame *)malloc(sizeof(struct stGame));
     if (!game)
     {
-        perror("malloc stGame");
+        log_fatal("malloc stGame");
         return NULL;
     }
     memset(game, 0, sizeof(struct stGame));
@@ -802,7 +801,7 @@ struct stGame *createGame(struct stGamerContext *gContext)
     game->lstPlayers = (struct listElements_t *)malloc(sizeof(struct listElements_t));
     if (!game->lstPlayers)
     {
-        perror("malloc lstPlayers in createGame");
+        log_fatal("malloc lstPlayers in createGame");
         return NULL;
     }
     memset(game->lstPlayers, 0, sizeof(struct listElements_t));
@@ -822,7 +821,7 @@ struct stGame *createGame(struct stGamerContext *gContext)
     game->labirinth.ghosts = (struct listElements_t *)malloc(sizeof(struct listElements_t));
     if (!game->labirinth.ghosts)
     {
-        perror("malloc list of ghosts or grid in createGame");
+        log_fatal("malloc list of ghosts or grid in createGame");
         return NULL;
     }
     memset(game->labirinth.ghosts, 0, sizeof(struct listElements_t));
@@ -897,7 +896,7 @@ struct stPlayer *createPlayer(int32_t socket, uint32_t uIpv4)
     struct stPlayer *newPlayer = (struct stPlayer *)malloc(sizeof(struct stPlayer));
     if (!newPlayer)
     {
-        perror("malloc gamer failure");
+        log_fatal("malloc gamer failure");
         return NULL;
     }
 
@@ -955,7 +954,7 @@ bool removeGamePlayer(struct stGamerContext *gContext, struct stPlayer *player)
 {
     if ((!gContext) || (!player->pGame) || (!player))
     {
-        perror("removeGamePlayer() args error!");
+        log_error("removeGamePlayer() args error!");
         return false;
     }
 
@@ -992,7 +991,7 @@ bool removeGamePlayer(struct stGamerContext *gContext, struct stPlayer *player)
 
     if (!bFound)
     {
-        perror("removeGamePlayer() failed, gamer not found!");
+        log_error("removeGamePlayer() failed, gamer not found!");
     }
 
     return bFound;
@@ -1011,7 +1010,7 @@ bool removeGame(struct stGamerContext *gContext, struct stGame *game, bool bForc
 {
     if ((!gContext) || (!game))
     {
-        perror("removeGame() args error!");
+        log_error("removeGame() args error!");
         return false;
     }
 
@@ -1066,7 +1065,7 @@ void printPlayers(struct stGamerContext *gContext, const char *pCaller)
 {
     if (!gContext)
     {
-        perror("printPlayers() args error!");
+        log_error("printPlayers() args error!");
         return;
     }
 

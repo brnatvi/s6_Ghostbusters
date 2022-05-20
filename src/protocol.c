@@ -1,14 +1,4 @@
-#include "protocol.h"
-
-#include <sys/time.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-
-#include <time.h>
-
+#include "commons.h"
 
 const struct stMsgDesc group_msg[] = 
 {
@@ -140,13 +130,13 @@ int tcpGetMsg(int socket, struct stIpBuffer *buf, struct stRawMessage *pMsg)
 
             if (!desc)
             {
-                fprintf(stderr, "{%s} Protocol error! message not recognized!\n", __FUNCTION__);
+                log_error("Protocol error! message not recognized!");
                 return -1;
             }
 
             if (desc->msg >= eTcpMsgMaxValue)
             {
-                fprintf(stderr, "{%s} Protocol error! unsupported message type\n", __FUNCTION__);
+                log_error("Protocol error! unsupported message type");
                 return -1;
             }
 
@@ -190,6 +180,8 @@ int tcpGetMsg(int socket, struct stIpBuffer *buf, struct stRawMessage *pMsg)
         }
 
     } while (ret <= 0);
+
+    if (ret > 0) printMsg(pMsg->msgRaw, "<<");
 
     return ret;
 }
@@ -278,7 +270,7 @@ size_t createMsg(uint8_t *pMsg, enum msgId msg, va_list pVargs)
 
     if ((desc->szMsg) && ((pBuf - pBufStart) != desc->szMsg))
     {
-        perror("{formatMsg} buffer formatting error!");
+        log_error("{formatMsg} buffer formatting error!");
         return 0;
     }
 
@@ -297,9 +289,11 @@ bool sendMsg(int socket, enum msgId msg, ...)
 
     if (!szMsg)
     {
-        perror("{formatMsg} buffer formatting error!");
+        log_error("{formatMsg} buffer formatting error!");
         return false;
     }
+
+    printMsg(pMsg, ">>");
 
     return szMsg == send(socket, pMsg, szMsg, 0);
 }
@@ -319,9 +313,11 @@ bool sendMsgTo(int socket,
 
     if (!szMsg)
     {
-        perror("{formatMsg} buffer formatting error!");
+        log_error("{formatMsg} buffer formatting error!");
         return false;
     }
+
+    printMsg(pMsg, ">>");
 
     return szMsg == sendto(socket, pMsg, szMsg, 0, addr, addrlen);
 }
@@ -418,4 +414,103 @@ size_t scanMsg(uint8_t *pMsg, enum msgId msg, ...)
     va_end(pVargs);
 
     return szRet;
+}
+
+
+void printMsg(uint8_t *pMsg, const char *pPrefix)
+{
+    const struct stMsgDesc *pDesc = getMsgDescriptionByPrefix((const char*)pMsg);
+    if (!pDesc) {return;}
+
+#if defined(VERBOSE_TCP_PROTOCOL) && defined(VERBOSE_UDP_PROTOCOL)
+    //nothing - allows everything
+#elif defined(VERBOSE_TCP_PROTOCOL)
+    if (pDesc->msg >= eTcpMsgMaxValue) //if message ID is not belongs to TCP messages range range - quit
+    {
+        return;
+    }
+#elif defined(VERBOSE_UDP_PROTOCOL)
+    if (pDesc->msg <= eTcpMsgMaxValue) //if message ID is not belongs to UDP messages range range - quit
+    {
+        return;
+    }
+#endif
+    
+    if (0 == strcmp(pPrefix, ">>")) { SET_TERMINAL_COLOR(eTcLightGreen); }
+    else { SET_TERMINAL_COLOR(eTcLightMagenta);}
+
+    printf("%s [", pPrefix);
+
+    const char *pFormatIt = pDesc->format;
+    uint8_t    *pBuf = pMsg;
+
+    while (*pFormatIt)
+    {
+        if ('%' != *pFormatIt)
+        {
+            printf("%c", *pBuf);
+            pBuf++; 
+        }
+        else 
+        {
+            pFormatIt++;
+            if (!*pFormatIt) break;
+
+            if (('n' == *pFormatIt) || ('m' == *pFormatIt) || ('s' == *pFormatIt) || ('f' == *pFormatIt)) //1 byte
+            {
+                printf("%u", (uint32_t)(*(uint8_t*)pBuf));
+                pBuf += sizeof(uint8_t);
+            }
+            else if ('G' == *pFormatIt) //8 shars
+            {
+                char pId[USER_ID_LEN+1];
+                memcpy(pId, pBuf, USER_ID_LEN);
+                pBuf += USER_ID_LEN;
+                pId[USER_ID_LEN] = 0;
+                printf("%s", pId);
+            }
+            else if (('P' == *pFormatIt) || ('p' == *pFormatIt)) //4 chars
+            {
+                uint32_t pVar;
+                sscanf((char*)pBuf, "%04u", &pVar);
+                printf("%04u", pVar);
+                pBuf += 4; 
+            }
+            else if (('h' == *pFormatIt) || ('w' == *pFormatIt)) //2 bytes
+            {
+                printf("%04u", (uint32_t)(*(uint16_t*)pBuf));
+                pBuf += sizeof(uint16_t);
+            }
+            else if ('i' == *pFormatIt) //15 chars
+            {
+                uint32_t uIp1, uIp2, uIp3, uIp4;
+                sscanf((char*)pBuf, "%u.%u.%u.%u", &uIp1, &uIp2, &uIp3, &uIp4);
+                printf("%02u.%02u.%02u.%02u", uIp1, uIp2, uIp3, uIp4);
+                pBuf += 15;
+            }
+            else if ( ('x' == *pFormatIt) || ('y' == *pFormatIt) || ('d' == *pFormatIt)) //3 chars
+            {
+                uint32_t pVar;
+                sscanf((char*)pBuf, "%03u", &pVar);
+                printf("%03u", pVar);
+                pBuf += 3;
+            }
+            else if ('M' == *pFormatIt) //string 200 chars max
+            {
+                while (    (0 != memcmp(pBuf, TCP_END, END_LEN)) 
+                        && (0 != memcmp(pBuf, UDP_END, END_LEN))
+                      )
+                {
+                    printf("%c", *pBuf);
+                    pBuf++;
+                }
+            }
+        }
+
+        pFormatIt++;
+    }
+
+    printf("]\n");
+
+    SET_TERMINAL_COLOR(DEFAULT_TERM_COLOR);
 }

@@ -13,11 +13,13 @@ void *routine_game(void *args)
     bool           isExit   = false;
     const uint32_t sleepMs = 10;
     uint32_t       iter    = 0;
-    uint32_t       iterMod = 1000 / sleepMs;
+    uint32_t       iterMod = GHOST_MOVEMENT_INTERVAL_MS / sleepMs;
+
 
     usleep(1000 * 500); //initial sleep to let players to connect to multicast sockets, etc. 
 
     pthread_mutex_lock(&game->gameLock);
+    log_info("Create game %u thread", (uint32_t)game->idGame);
     sendMsgTo(game->udpMctSocket, 
               (struct sockaddr*)&game->MctAddr, 
               sizeof(game->MctAddr), 
@@ -131,9 +133,10 @@ void *routine_game(void *args)
                   Winner->id, 
                   (uint32_t)Winner->score);
     }
+
+    log_info("Stop game %u thread", (uint32_t)game->idGame);
     pthread_mutex_unlock(&game->gameLock);
 
-    printf("EXIT GAME thread\n");
 
     return NULL;
 }
@@ -182,7 +185,7 @@ int launchGame(struct stGamerContext *gContext, struct stGame *game)
     int phRez = pthread_create(&th, NULL, routine_game, (void *)game);
     if (phRez != 0) // error
     {
-        fprintf(stderr, "{%s} pthread_create failure", __FUNCTION__); 
+        log_error("pthread_create failure"); 
         rez = EXIT_FAILURE;
         goto lExit;
     }

@@ -4,6 +4,8 @@
 
 int main(int argc, char **argv)
 {
+    SET_TERMINAL_COLOR(DEFAULT_TERM_COLOR);
+
     sigaction(SIGPIPE, &(struct sigaction){{SIG_IGN}}, NULL);
     srand(time(NULL)); 
 
@@ -16,21 +18,26 @@ int main(int argc, char **argv)
     struct stServerContext *context = (struct stServerContext *)malloc(sizeof(struct stServerContext));
     if (!context)
     {
-        perror("malloc stServerContext");
+        log_fatal("malloc stServerContext");
         goto lExit;
     }
     memset(context, 0, sizeof(struct sockaddr_in));
     context->tcpListenSocket = tcpListenSocket;
 
     struct sockaddr_in *socAddress = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in));
+    if (!socAddress)
+    {
+        log_fatal("malloc socAddress");
+        goto lExit;
+    }
     memset(socAddress, 0, sizeof(struct sockaddr_in));
     context->sockAddress = *socAddress;
     context->lastGameId = 0;
 
     // fill sockaddr_in
-    context->sockAddress.sin_family = AF_INET;
-    context->sockAddress.sin_port = htons(port);              // TODO check that need htons
-    context->sockAddress.sin_addr.s_addr = htonl(INADDR_ANY); // TODO check that need htons
+    context->sockAddress.sin_family      = AF_INET;
+    context->sockAddress.sin_port        = htons(port);              
+    context->sockAddress.sin_addr.s_addr = htonl(INADDR_ANY); 
 
     pthread_mutexattr_t Attr;
     pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
@@ -39,7 +46,7 @@ int main(int argc, char **argv)
     context->lstGames = (struct listElements_t *)malloc(sizeof(struct listElements_t));
     if (!context->lstGames)
     {
-        perror("malloc context->lstGames");
+        log_fatal("malloc context->lstGames");
         goto lExit;
     }
     memset(context->lstGames, 0, sizeof(struct listElements_t));
@@ -51,7 +58,6 @@ int main(int argc, char **argv)
         rez = EXIT_FAILURE;
         goto lExit;
     }
-    // printf("connection created : \nfd1 = %d\nsin_addr = %d\nport = %d\n", context->tcpListenSocket, context->sockAddress.sin_addr.s_addr, context->sockAddress.sin_port);
 
     while (1)
     {

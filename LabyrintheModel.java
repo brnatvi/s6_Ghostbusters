@@ -86,11 +86,20 @@ public class LabyrintheModel {
     }
 
     public Grid generateLaby(){
-        Grid laby = new Grid(treat.height,treat.width);
         if(treat.height != 0 && treat.width != 0){
+            Grid laby = new Grid(treat.height,treat.width);
             laby.grid();
+            return laby;
         }
-        return laby;
+        return null;
+    }
+
+    public int getX(){
+        return treat.x;
+    }
+
+    public int getY(){
+        return treat.y;
     }
 
 

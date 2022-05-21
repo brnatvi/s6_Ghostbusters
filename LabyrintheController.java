@@ -11,6 +11,7 @@ import java.util.Scanner;
 public class LabyrintheController {
 
     LabyrintheVue vue;
+    Grid laby;
     LabyrintheModel model;
     
 
@@ -19,7 +20,12 @@ public class LabyrintheController {
     public LabyrintheController(LabyrintheVue _vue, LabyrintheModel _model){
         this.vue = _vue;
         this.model = _model;
+        laby = new Grid();
         
+    }
+
+    public void setGrid(Grid _laby){
+        this.laby = _laby;
     }
 
     public void ctrlFunctions(){
@@ -298,23 +304,33 @@ public class LabyrintheController {
         return canSend;
     }
 
-
+    public void initColor(){
+        if(laby != null && laby.buttons != null){
+            for(MyButton[] b : laby.buttons){
+                for(MyButton bb: b){
+                    bb.setBackground(Color.WHITE);
+                }
+            }
+        }
+    }
 
     public void getPosition(){
-        if(vue.laby != null && vue.answer.getText().length() > 5 && vue.answer.getText().substring(0,5).equals("POSIT")){
-            String x = vue.answer.getText().substring(15,18);
-            String y = vue.answer.getText().substring(19,22);
-            
-
+        initColor();
+        if(laby != null && vue.answer.getText().length() > 5 && 
+        (vue.answer.getText().substring(0,5).equals("WELCO") || vue.answer.getText().substring(0,5).equals("MOVE!") || 
+        vue.answer.getText().substring(0,5).equals("MOVEF"))
+        ){
+            int x = model.getX(); //vue.answer.getText().substring(15,18);
+            int y = model.getY(); //vue.answer.getText().substring(19,22);
+            laby.buttons[x][y].setBackground(Color.RED);
         }
     }
 
     public Grid generateLaby(){
-        Grid g = new Grid();
-        if(vue.laby != null && vue.answer.getText().length() > 5 && vue.answer.getText().substring(0,5).equals("SIZE?")){
-            g = model.generateLaby();
+        if(vue.answer.getText().length() > 5 && vue.answer.getText().substring(0,5).equals("SIZE!")){
+            laby = model.generateLaby();
         }
-        return g;
+        return laby;
     }
 
 

@@ -62,7 +62,8 @@ public class TreatPacket extends Thread {
             case "SCORE":
             case "MESSA":
             case "ENDGA":
-                answer.setText(answer.getText()+"\n"+entete+new String(tail));
+            case "MESSP":
+                answer.setText(answer.getText()+entete+new String(tail));
                 System.out.println(entete+new String(tail));
                 break;
             

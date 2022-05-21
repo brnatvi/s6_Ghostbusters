@@ -154,8 +154,7 @@ public class TreatTCP extends Thread{
                 setNbGame(treatInfoOneByte(tail[1]));
                 setHeight(treatInfoTwoBytes(Arrays.copyOfRange(tail, 3, 5)));
                 setWidth(treatInfoTwoBytes(Arrays.copyOfRange(tail, 6, 8)));
-                System.out.println(height);
-                System.out.println(width);
+                
                 break;
             case "GAMES":
                 System.out.println(entete+" "+treatInfoOneByte(tail[1])+tcpEnd);
@@ -211,7 +210,7 @@ public class TreatTCP extends Thread{
                 break; 
             case "GLIS!":
                 System.out.println(entete+" "+treatInfoOneByte(tail[1]) +tcpEnd);
-                answer.setText(entete+" "+treatInfoOneByte(tail[1]) +tcpEnd);
+                answer.setText(answer.getText()+"\n"+entete+" "+treatInfoOneByte(tail[1]) +tcpEnd);
                 n = tail[1];
                 if(n != 0){
                     

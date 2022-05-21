@@ -10,13 +10,12 @@ import java.util.Scanner;
 
 public class LabyrintheVue extends JPanel{
 
-    JPanel p1 = new JPanel();
-    GridLayout g1 = new GridLayout(2,2);
+    //JPanel p1 = new JPanel();
 
     private int hFrame, wFrame; 
     JTextField answer = new JTextField();
     JTextField clientAnswer = new JTextField();
-    JLabel id_label = new JLabel("Identifiant");
+    JLabel id_label = new JLabel("Identifiant", SwingConstants.RIGHT);
     JTextField id = new JTextField();
     JLabel mess_label = new JLabel("Message");
     JTextField mess = new JTextField();
@@ -29,13 +28,14 @@ public class LabyrintheVue extends JPanel{
     final JButton send = new JButton("Send");
     String[] entete = {"--Entete--","NEWPL","REGIS","SIZE?","LIST?", "GAME?", "START", "UPMOV", "DOMOV", "LEMOV", "RIMOV", "GLIS?", "MALL?", "SEND?", "IQUIT"};
     JComboBox<String> jComboBox;
-    Grid laby;
+    
 
     LabyrintheController ctrl;
 
     public LabyrintheVue(int hf, int wf){
         super();
-        p1.setLayout(g1);
+        // p1.setLayout(g1);
+        
         setSize(wf,hf);
         jComboBox = new JComboBox<>(entete);
         jComboBox.setBounds(80,50,140,20);
@@ -48,7 +48,6 @@ public class LabyrintheVue extends JPanel{
 
     public void answerField(){
         JLabel label = new JLabel("Réponse serveur");
-        
         answer.setEnabled(false);
         this.add(label);
         answer.setText("----");
@@ -81,12 +80,12 @@ public class LabyrintheVue extends JPanel{
     }
 
     public void clientAnswer(){
-
-        id.setPreferredSize(new Dimension(900,50));
-        mess.setPreferredSize(new Dimension(900,50));
-        nb_partie.setPreferredSize(new Dimension(900,50));
-        dist.setPreferredSize(new Dimension(900,50));
-        port_udp.setPreferredSize(new Dimension(900,50));
+        id_label.setPreferredSize(new Dimension(500,25));
+        id.setPreferredSize(new Dimension(500,25));
+        mess.setPreferredSize(new Dimension(500,25));
+        nb_partie.setPreferredSize(new Dimension(100,25));
+        dist.setPreferredSize(new Dimension(25,25));
+        port_udp.setPreferredSize(new Dimension(250,25));
     }
 
     public void initializeText(){
@@ -153,31 +152,34 @@ public class LabyrintheVue extends JPanel{
         return toSend;
     }
 
-    
-    // public void frame
-    public JFrame frame(){
-        JFrame frame = new JFrame("GHOST LAB");
-        //Grid laby = new Grid(10, 10);
-        //laby.grid();
+    public void functions(){
         answerField();
         clientAnswer();
-        p1.setLayout(g1);
-        // p1.add(laby);
-        p1.add(this);
-        // frame.add(laby);
-        // frame.add(this);
-        frame.add(p1);
-        
-        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-        
-        //frame.setContentPane(this);
-        frame.setContentPane(p1);
-        
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        
-        frame.pack();
-        frame.setVisible(true);
-        return frame;
     }
+    
+    // public void frame
+    // public JFrame frame(){
+    //     JFrame frame = new JFrame("GHOST LAB");
+    //     //Grid laby = new Grid(10, 10);
+    //     //laby.grid();
+        
+    //     p1.setLayout(g1);
+    //     // p1.add(laby);
+    //     p1.add(this);
+    //     // frame.add(laby);
+    //     // frame.add(this);
+    //     frame.add(p1);
+        
+    //     frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+        
+    //     //frame.setContentPane(this);
+    //     frame.setContentPane(p1);
+        
+    //     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        
+    //     frame.pack();
+    //     frame.setVisible(true);
+    //     return frame;
+    // }
 
 }

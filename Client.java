@@ -20,8 +20,7 @@ class Client {
    
 
     //Connexion TCP du client au serveur
-    public Client(String adresse, String port){
-        
+    public Client(String adresse, String port){ 
         try {
             
             sockfd = new Socket(adresse, Integer.parseInt(port));
@@ -46,13 +45,33 @@ class Client {
         
         ctrl.ctrlFunctions();
         vue.setCtrl(ctrl);
-        JFrame frame = vue.frame();
+        vue.functions();
         
-
+        JPanel pane = new JPanel();
+        GridLayout g = new GridLayout(2,0);
+        pane.setLayout(g);
+        JFrame frame = new JFrame("GHOST LAB");
+        frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.pack();
+        frame.setVisible(true);
+        pane.add(vue);
+        frame.setContentPane(pane);
+    
         while(!model.fin){
             
             model.getMessage(vue.answer);
-            vue.afficheGrid(model.generateLaby());
+            
+            if(ctrl.generateLaby() != null){
+                
+                pane.removeAll();
+                pane.add(vue);
+                pane.add(ctrl.generateLaby());
+                pane.updateUI();
+                ctrl.getPosition();
+            }
+ 
+            
         }
         
 

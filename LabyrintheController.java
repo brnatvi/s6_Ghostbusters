@@ -231,9 +231,9 @@ public class LabyrintheController {
             try {
                 model.portUDP = send.getPortUDP();
                 model.sockUDP = new DatagramSocket(model.portUDP);
-                WaitUDP wu = new WaitUDP(model.sockUDP);
-                wu.setTxt(vue.answer);
-                wu.start();
+                model.wu = new WaitUDP(model.sockUDP);
+                model.wu.setTxt(vue.answer);
+                model.wu.start();
                 
             }
             catch(Exception e){
@@ -322,8 +322,8 @@ public class LabyrintheController {
         (vue.answer.getText().substring(0,5).equals("WELCO") || vue.answer.getText().substring(0,5).equals("MOVE!") || 
         vue.answer.getText().substring(0,5).equals("MOVEF"))
         ){
-            int x = model.getX(); //vue.answer.getText().substring(15,18);
-            int y = model.getY(); //vue.answer.getText().substring(19,22);
+            int x = model.getX(); 
+            int y = model.getY(); 
             laby.buttons[x][y].setBackground(Color.RED);
         }
     }

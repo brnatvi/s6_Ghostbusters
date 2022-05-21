@@ -18,7 +18,7 @@ public class TreatTCP extends Thread{
     JTextArea answer;
 
     private String ip;
-    // Partie partie;
+    boolean fin = false;
     
     LinkedList<Integer> games;
     int totalGames = 0;
@@ -29,14 +29,12 @@ public class TreatTCP extends Thread{
 
     public TreatTCP(String _msg){
         this.msg = _msg; 
-        // partie = new Partie();  
     }
 
     public void setText(JTextArea _txt){
         this.answer = _txt;
     }
 
-    // parseip till #
     public String getIP(){
         return ip;
     }
@@ -46,6 +44,28 @@ public class TreatTCP extends Thread{
             return (Arrays.copyOfRange(tail, 0, n1+3)); //n-1
         }
         return null;
+    }
+
+    public static byte[] hashTagMet(byte[] tail, int n1){
+        
+        if((char) tail[n1] == '#'){
+            
+            return (Arrays.copyOfRange(tail, 0, n1));
+        }
+        return null;
+    }
+
+    public static byte[] parseUntilHashTag(byte[] ip){
+        byte[] res = null;
+        int ind = 0;
+        while(ind < 15 && res == null){
+            res = hashTagMet(ip, ind);
+            ind++;
+        }
+        if(res == null){
+            return ip;
+        }
+        return res;
     }
 
     //parser jusqu'à trouver '***' return byte array
@@ -112,9 +132,9 @@ public class TreatTCP extends Thread{
             ));
     }
 
-    // treatMess(String msg)
+    
 
-    public void run(){ // enlever tcpEnd from system.out.println
+    public void run(){ 
         String entete = msg.substring(0,5);
         byte[] tail = parseUntilStars(entete, (msg.substring(5)).getBytes());
         String tcpEnd = "***";
@@ -182,7 +202,7 @@ public class TreatTCP extends Thread{
                     initPlayers();
                     for(byte[] t: tmp){
                         System.out.println(new String(t));
-                        answer.setText(answer.getText()+" "+new String(t));
+                        answer.setText(answer.getText()+"\n"+new String(t));
                         addToPlayers(msg.substring(tail.length+6+5, tail.length+6+13));
                         
                     }
@@ -196,7 +216,9 @@ public class TreatTCP extends Thread{
                 treatInfoTwoBytes(Arrays.copyOfRange(tail,6,8))+" "+treatInfoOneByte(tail[9])+" "+
                 new String(Arrays.copyOfRange(tail, 11, 34)));
                 
-                this.ip = msg.substring(16,31);
+                
+                this.ip = new String(Arrays.copyOfRange(tail, 11, 26)); 
+                
                 this.port_mult = Integer.parseInt(msg.substring(32, 36));
 
 
@@ -206,11 +228,11 @@ public class TreatTCP extends Thread{
                 byte[] tmp = parseUntilStars("POSIT", msg.substring(tail.length+5).getBytes());
                 
                 System.out.println(new String(tmp));
-                answer.setText(answer.getText()+" "+new String(tmp));
+                answer.setText(answer.getText()+"\n"+new String(tmp));
                 break; 
             case "GLIS!":
                 System.out.println(entete+" "+treatInfoOneByte(tail[1]) +tcpEnd);
-                answer.setText(answer.getText()+" "+entete+" "+treatInfoOneByte(tail[1]) +tcpEnd);
+                answer.setText(answer.getText()+"\n"+entete+" "+treatInfoOneByte(tail[1]) +tcpEnd);
                 n = tail[1];
                 if(n != 0){
                     
@@ -275,15 +297,6 @@ public class TreatTCP extends Thread{
     public void clearPlayers(){
         players.clear();
     }
-
-    
-
-        public static void main(String[] args){
-            String s = " 001 003";
-            byte[] tail = s.getBytes();
-            System.out.println((new String(tail).substring(1,4)));
-            System.out.println((new String(tail).substring(5,8)));
-        }
 
 
 }

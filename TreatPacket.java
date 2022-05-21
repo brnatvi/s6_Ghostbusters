@@ -34,11 +34,11 @@ public class TreatPacket extends Thread {
         if(entete.equals("GHOST")){
             return conditionMet(tail, 8);
         }
-        else if(entete.equals("ENDGA")){ // ENDGA tharsiya 1000+++
+        else if(entete.equals("ENDGA")){ 
             
             return conditionMet(tail, 14); 
         }
-        else if(entete.equals("SCORE")){ // SCORE tharsiya 1000 001 001+++
+        else if(entete.equals("SCORE")){ 
             return conditionMet(tail, 22);
         }
         else if(entete.equals("MESSA") || entete.equals("MESSP")){
@@ -58,12 +58,12 @@ public class TreatPacket extends Thread {
         String entete = msg.substring(0,5);
         byte[] tail = parseUntilPlus(entete, (msg.substring(5,msg.length())).getBytes());
         switch(entete){
-            // case "GHOST":
+            case "GHOST":
             case "SCORE":
             case "MESSA":
             case "ENDGA":
             case "MESSP":
-                answer.setText(answer.getText()+entete+new String(tail));
+                answer.setText(answer.getText()+"\n"+entete+new String(tail));
                 System.out.println(entete+new String(tail));
                 break;
             

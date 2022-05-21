@@ -61,7 +61,6 @@ public class LabyrintheVue extends JPanel{
         panel.add(label1);
         panel.add(clientAnswer);
         this.add(panel);
-        //this.add(clientAnswer);
     }
 
     public void addTextField(JTextField j){
@@ -159,29 +158,4 @@ public class LabyrintheVue extends JPanel{
         clientAnswer();
     }
     
-    // public void frame
-    // public JFrame frame(){
-    //     JFrame frame = new JFrame("GHOST LAB");
-    //     //Grid laby = new Grid(10, 10);
-    //     //laby.grid();
-        
-    //     p1.setLayout(g1);
-    //     // p1.add(laby);
-    //     p1.add(this);
-    //     // frame.add(laby);
-    //     // frame.add(this);
-    //     frame.add(p1);
-        
-    //     frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-        
-    //     //frame.setContentPane(this);
-    //     frame.setContentPane(p1);
-        
-    //     frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        
-    //     frame.pack();
-    //     frame.setVisible(true);
-    //     return frame;
-    // }
-
 }

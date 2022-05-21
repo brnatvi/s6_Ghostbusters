@@ -20,10 +20,11 @@ class Client {
    
 
     //Connexion TCP du client au serveur
-    public Client(String adresse, String port){ 
+    public Client(String machine, String port){ 
         try {
-            
-            sockfd = new Socket(adresse, Integer.parseInt(port));
+            //System.out.println(InetAddress.getByName(machine).getHostAddress());
+
+            sockfd = new Socket(InetAddress.getByName(machine).getHostAddress(), Integer.parseInt(port));
             in = new BufferedReader(new InputStreamReader(sockfd.getInputStream()));
             out = new PrintWriter(new OutputStreamWriter(sockfd.getOutputStream()));
             
@@ -35,8 +36,6 @@ class Client {
         }
     }
 
- 
-    // VRAI TEST
     public static void main(String[] args){       
         Client p = new Client(args[0], args[1]);
         LabyrintheVue vue = new LabyrintheVue(100, 100);

@@ -10,7 +10,7 @@ public class SendTCP extends Thread {
     public String msg;
     public PrintWriter out;
     
-    
+    boolean fin = false;
 
     public SendTCP(String _msg, PrintWriter _out){
         this.msg = _msg;
@@ -29,15 +29,6 @@ public class SendTCP extends Thread {
         return nb;
     }
 
-    public byte[] sendByteArray(int val, int length) {
-        byte[] res = new byte[length];
-        int ind = 0;
-        for(int i = length-1; i >= 0; i--){
-            res[ind] = (byte)((val >> 8*i) & 0xff);
-            ind ++;
-        }
-        return res;
-    }
 
     public char[] sendCharArray(String val, int length){
         char[] res = new char[length];
@@ -68,7 +59,6 @@ public class SendTCP extends Thread {
         return new String(id_len);
     }
 
-    //byte[] sendMess(String msg)
 
     public void run(){
         String str_entete = msg.substring(0,5);
@@ -100,7 +90,7 @@ public class SendTCP extends Thread {
                 break;
             case "UNREG" :
             case "SIZE?" :
-            case "LIST?" : // utiliser sendByteArray(m, 1)
+            case "LIST?" : 
                 m = sendOneInfoByte(Integer.parseInt(msg.substring(6, msg.length()-3)));
                 toSend = new byte[entete.length + space.length + 1 + tcpEnd.length];
                 System.arraycopy(entete, 0 ,toSend, 0, entete.length);
@@ -112,8 +102,8 @@ public class SendTCP extends Thread {
             case "DOMOV":
             case "LEMOV":
             case "RIMOV":
-                String d = msg.substring(6, msg.length()-3);  // Integer.parseInt(msg.substring(6, msg.length()-3));
-                byte[] d_byte = charArrayToByteArray(sendCharArray(d,3)); //sendByteArray(d, 3);
+                String d = msg.substring(6, msg.length()-3);  
+                byte[] d_byte = charArrayToByteArray(sendCharArray(d,3)); 
                 toSend = new byte[entete.length + space.length + d_byte.length+ tcpEnd.length];
                 System.arraycopy(entete, 0, toSend, 0, entete.length);
                 System.arraycopy(space, 0, toSend, entete.length, 1);
@@ -124,9 +114,7 @@ public class SendTCP extends Thread {
 
             
         }
-        out.print(new String(toSend));
-        // l.clientAnswer.setText(msg);
-        
+        out.print(new String(toSend));        
         out.flush();
         
     }

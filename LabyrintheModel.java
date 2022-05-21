@@ -12,12 +12,14 @@ public class LabyrintheModel {
 
     BufferedReader in;
     PrintWriter out; 
-        //Variables importantes
+    
     int portUDP;
     DatagramSocket sockUDP;
     MulticastSocket sockMult;
     Socket sockfd;
     TreatTCP treat;
+    WaitUDP wu;
+    WaitMultiCast mc;
 
     boolean start = false;
     boolean fin = false;
@@ -61,7 +63,8 @@ public class LabyrintheModel {
                 sockUDP.close();
                 sockMult.leaveGroup(InetAddress.getByName(ip));
                 sockfd.close();
-
+                wu.fin = false;
+                mc.fin = false;
             }
             catch(Exception e){
                 e.printStackTrace();
@@ -69,10 +72,10 @@ public class LabyrintheModel {
         }
         if(msg.substring(0,5).equals("WELCO")){
             try{
-                               
+                
                 sockMult = new MulticastSocket(treat.port_mult);
                 ip = treat.getIP();
-                WaitMultiCast mc = new WaitMultiCast(sockMult, ip);
+                mc = new WaitMultiCast(sockMult, ip);
                 mc.setText(txt);
                 mc.start();
                 

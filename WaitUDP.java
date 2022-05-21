@@ -13,6 +13,7 @@ public class WaitUDP extends Thread {
     int port;
     DatagramSocket sock_udp;
     JTextArea answer;
+    boolean fin = false;
 
     public WaitUDP(DatagramSocket _sock_udp){
         
@@ -25,9 +26,9 @@ public class WaitUDP extends Thread {
 
     public void run(){
         try {
-            // DatagramSocket sock_udp = new DatagramSocket(port);
+            
             byte[] data = new byte[218];
-            while(true){
+            while(!sock_udp.isClosed()){
                 DatagramPacket paquet = new DatagramPacket(data, data.length);
                 sock_udp.receive(paquet);
                 String st = new String(paquet.getData(), 0, paquet.getLength()-3);
@@ -54,8 +55,5 @@ public class WaitUDP extends Thread {
         }
     }
 
-    public static void main(String[] args){
-        // DatagramSocket s = new DatagramSocket(9898);
-        // s.close();
-    }
+    
 }

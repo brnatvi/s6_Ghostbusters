@@ -10,6 +10,9 @@ import java.util.Scanner;
 
 public class LabyrintheVue extends JPanel{
 
+    JPanel p1 = new JPanel();
+    GridLayout g1 = new GridLayout(2,2);
+
     private int hFrame, wFrame; 
     JTextField answer = new JTextField();
     JTextField clientAnswer = new JTextField();
@@ -26,11 +29,13 @@ public class LabyrintheVue extends JPanel{
     final JButton send = new JButton("Send");
     String[] entete = {"--Entete--","NEWPL","REGIS","SIZE?","LIST?", "GAME?", "START", "UPMOV", "DOMOV", "LEMOV", "RIMOV", "GLIS?", "MALL?", "SEND?", "IQUIT"};
     JComboBox<String> jComboBox;
+    Grid laby;
 
     LabyrintheController ctrl;
 
     public LabyrintheVue(int hf, int wf){
         super();
+        p1.setLayout(g1);
         setSize(wf,hf);
         jComboBox = new JComboBox<>(entete);
         jComboBox.setBounds(80,50,140,20);
@@ -150,17 +155,14 @@ public class LabyrintheVue extends JPanel{
 
     
     // public void frame
-    public void frame(){
+    public JFrame frame(){
         JFrame frame = new JFrame("GHOST LAB");
-        Grid laby = new Grid(10, 10);
-        laby.grid();
+        //Grid laby = new Grid(10, 10);
+        //laby.grid();
         answerField();
         clientAnswer();
-
-        JPanel p1 = new JPanel();
-        GridLayout g1 = new GridLayout(2,2);
         p1.setLayout(g1);
-        p1.add(laby);
+        // p1.add(laby);
         p1.add(this);
         // frame.add(laby);
         // frame.add(this);
@@ -175,6 +177,7 @@ public class LabyrintheVue extends JPanel{
         
         frame.pack();
         frame.setVisible(true);
+        return frame;
     }
 
 }

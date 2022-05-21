@@ -183,7 +183,7 @@ public class TreatTCP extends Thread{
                     initPlayers();
                     for(byte[] t: tmp){
                         System.out.println(new String(t));
-                        answer.setText(new String(t));
+                        answer.setText(answer.getText()+"\n"+new String(t));
                         addToPlayers(msg.substring(tail.length+6+5, tail.length+6+13));
                         
                     }
@@ -207,7 +207,7 @@ public class TreatTCP extends Thread{
                 byte[] tmp = parseUntilStars("POSIT", msg.substring(tail.length+5).getBytes());
                 
                 System.out.println(new String(tmp));
-                answer.setText(new String(tmp));
+                answer.setText(answer.getText()+"\n"+new String(tmp));
                 break; 
             case "GLIS!":
                 System.out.println(entete+" "+treatInfoOneByte(tail[1]) +tcpEnd);
@@ -218,7 +218,7 @@ public class TreatTCP extends Thread{
                     byte[][] aux = parseUntilStars("GPLYR", msg.substring(tail.length+5).getBytes(), n, 30);
                     for(byte[] a: aux){
                         System.out.println(new String(a));
-                        answer.setText(new String(a));
+                        answer.setText(answer.getText()+"\n"+new String(a));
                     }
                 }     
         }

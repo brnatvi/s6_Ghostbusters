@@ -11,28 +11,21 @@ import java.util.Scanner;
 public class LabyrintheController {
 
     LabyrintheVue vue;
-    BufferedReader in;
-    PrintWriter out; 
-        //Variables importantes
-    int portUDP;
-    DatagramSocket sockUDP;
-    MulticastSocket sockMult;
-    Socket sockfd;
+    LabyrintheModel model;
+    
 
     boolean start = false;
 
-    public LabyrintheController(LabyrintheVue _vue, BufferedReader _in, PrintWriter _out, Socket _sockfd){
+    public LabyrintheController(LabyrintheVue _vue, LabyrintheModel _model){
         this.vue = _vue;
-        this.in = _in;
-        this.out = _out;
-        this.sockfd = _sockfd;
+        this.model = _model;
+        
     }
 
     public void ctrlFunctions(){
         clientAvantStart();
         clientAfterStart();
         sendButton();
-        
     }
 
     public void clientAvantStart(){
@@ -195,8 +188,6 @@ public class LabyrintheController {
             }
         });
         
-        // vue.add(vue.jComboBox);
-        
     }
 
     public void sendButton(){
@@ -216,10 +207,11 @@ public class LabyrintheController {
         });
     }
 
+
     public void sendMessage(String msg){ 
         System.out.println(msg); 
         vue.clientAnswer.setText(msg);      
-        SendTCP send = new SendTCP(msg, out);
+        SendTCP send = new SendTCP(msg, model.out);
         send.start();
         try {
             send.join();
@@ -229,9 +221,9 @@ public class LabyrintheController {
         }
         if(msg.substring(0,5).equals("NEWPL") || msg.substring(0,5).equals("REGIS")){ 
             try {
-                portUDP = send.getPortUDP();
-                sockUDP = new DatagramSocket(portUDP);
-                WaitUDP wu = new WaitUDP(sockUDP);
+                model.portUDP = send.getPortUDP();
+                model.sockUDP = new DatagramSocket(model.portUDP);
+                WaitUDP wu = new WaitUDP(model.sockUDP);
                 wu.setTxt(vue.answer);
                 wu.start();
                 
@@ -305,5 +297,25 @@ public class LabyrintheController {
         }
         return canSend;
     }
+
+
+
+    public void getPosition(){
+        if(vue.laby != null && vue.answer.getText().length() > 5 && vue.answer.getText().substring(0,5).equals("POSIT")){
+            String x = vue.answer.getText().substring(15,18);
+            String y = vue.answer.getText().substring(19,22);
+            
+
+        }
+    }
+
+    public Grid generateLaby(){
+        Grid g = new Grid();
+        if(vue.laby != null && vue.answer.getText().length() > 5 && vue.answer.getText().substring(0,5).equals("SIZE?")){
+            g = model.generateLaby();
+        }
+        return g;
+    }
+
 
 }

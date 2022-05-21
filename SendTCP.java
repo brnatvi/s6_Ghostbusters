@@ -10,6 +10,7 @@ public class SendTCP extends Thread {
     public String msg;
     public PrintWriter out;
     
+    
 
     public SendTCP(String _msg, PrintWriter _out){
         this.msg = _msg;

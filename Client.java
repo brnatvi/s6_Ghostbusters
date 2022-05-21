@@ -101,9 +101,9 @@ class Client {
   
     //Partie send
     // , LabyrintheVue l
-    public void sendMessage(String msg){
-        // String msg = sc.nextLine();
-        System.out.println(msg);
+    public void sendMessage(){
+        String msg = sc.nextLine();
+        // System.out.println(msg);
         send = new SendTCP(msg, out);
         send.start();
         try {
@@ -131,63 +131,16 @@ class Client {
     // VRAI TEST
     public static void main(String[] args){       
         Client p = new Client(args[0], args[1]);
-        // LabyrintheVue l = new LabyrintheVue(10,12, 100, 100, p.in, p.out, p.sockfd);
-        LinkedList<String> players = new LinkedList<String>();
-        LinkedList<Integer> games = new LinkedList<Integer>();
-        int nbGame, totalGames, width, height = 0;
-
-        try {
-            p.getMessage();
-            Scenario sc = new Scenario(p.treat);
-            System.out.println(p.treat);
-            totalGames = p.treat.totalGames;
-            games = p.treat.games;
-
-            p.sendMessage(sc.inscription(totalGames, games));
-            p.getMessage();
-            nbGame = p.treat.nbGame;
-            
-            TimeUnit.SECONDS.sleep(3);
-            
-            p.sendMessage(sc.sizeAndList("SIZE?", nbGame));
-            System.out.println(nbGame);
-            p.getMessage();
-            System.out.println(p.treat);
-            TimeUnit.SECONDS.sleep(3);
-            height = p.treat.x;
-            width = p.treat.y;
-            System.out.println(height);
-            System.out.println(width);
-            p.sendMessage(sc.sizeAndList("LIST?", nbGame));
-            players = p.treat.players;
-            p.getMessage();
-            TimeUnit.SECONDS.sleep(3);
-
-            p.sendMessage("START***");
-            TimeUnit.SECONDS.sleep(3);
+        LabyrintheVue vue = new LabyrintheVue(100, 100);
+        LabyrintheController ctrl = new LabyrintheController(vue, p.in, p.out, p.sockfd);
+        ctrl.ctrlFunctions();
+        vue.setCtrl(ctrl);
+        vue.frame();
+        while(!p.fin){
             p.getMessage();
             
-            int coup = 50;
-            while(coup > 0){
-                p.sendMessage(sc.movePlayer());
-                p.getMessage();
-                TimeUnit.SECONDS.sleep(3);
-
-                String s = sc.chatMessage();
-                if(s != ""){
-                    p.sendMessage(s);
-                    p.getMessage();
-                    TimeUnit.SECONDS.sleep(3);
-                }
-                
-                coup --;
-            }
-            p.sendMessage(sc.quit());
-            p.getMessage();
         }
-        catch(Exception e){
-            e.printStackTrace();
-        }
+        
 
              
     }

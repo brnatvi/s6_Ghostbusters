@@ -39,7 +39,7 @@ public class LabyrintheModel {
         return (new String(buf)); 
     }
 
-    public void getMessage(JTextField txt){
+    public void getMessage(JTextArea txt){
         char[] buf = new char[1024];
         String msg = read(in, buf, 0, 1024);
         

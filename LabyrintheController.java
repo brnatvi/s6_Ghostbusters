@@ -53,6 +53,7 @@ public class LabyrintheController {
                         vue.remove(vue.mess);
                         vue.remove(vue.nb_partie_label);
                         vue.remove(vue.nb_partie);
+                        
                         vue.add(vue.send);
                         vue.updateUI();
                         break;
@@ -143,6 +144,7 @@ public class LabyrintheController {
                         vue.remove(vue.mess);
                         vue.remove(vue.nb_partie_label);
                         vue.remove(vue.nb_partie);
+                        vue.add(vue.send);
                         vue.add(vue.send);
                         vue.updateUI();
                         break;

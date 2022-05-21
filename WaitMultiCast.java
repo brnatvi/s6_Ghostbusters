@@ -12,14 +12,14 @@ public class WaitMultiCast extends Thread {
 
     MulticastSocket sock_mult;
     String ip;
-    JTextField answer;
+    JTextArea answer;
 
     public WaitMultiCast(MulticastSocket _sock_mult, String _ip){
         this.sock_mult = _sock_mult;
         this.ip = _ip;
     }
 
-    public void setText(JTextField _answer){
+    public void setText(JTextArea _answer){
         this.answer = _answer;
     }
 

@@ -15,7 +15,7 @@ public class TreatTCP extends Thread{
     public String msg;
     public int port_mult;
     LabyrintheVue vue;
-    JTextField answer;
+    JTextArea answer;
 
     private String ip;
     // Partie partie;
@@ -32,7 +32,7 @@ public class TreatTCP extends Thread{
         // partie = new Partie();  
     }
 
-    public void setText(JTextField _txt){
+    public void setText(JTextArea _txt){
         this.answer = _txt;
     }
 
@@ -167,7 +167,7 @@ public class TreatTCP extends Thread{
                     setTotalGames(treatInfoOneByte(tail[1]));
                     for(byte[] k: l){
                         System.out.println("OGAME "+ treatInfoOneByte(k[6])+" "+treatInfoOneByte(k[8])+tcpEnd);
-                        s  = s +"\n"+("OGAME "+ treatInfoOneByte(k[6])+" "+treatInfoOneByte(k[8])+tcpEnd);
+                        s  = s +" "+("OGAME "+ treatInfoOneByte(k[6])+" "+treatInfoOneByte(k[8])+tcpEnd);
                         addToGames(treatInfoOneByte(k[6]));
                     }
                 }
@@ -182,7 +182,7 @@ public class TreatTCP extends Thread{
                     initPlayers();
                     for(byte[] t: tmp){
                         System.out.println(new String(t));
-                        answer.setText(answer.getText()+"\n"+new String(t));
+                        answer.setText(answer.getText()+" "+new String(t));
                         addToPlayers(msg.substring(tail.length+6+5, tail.length+6+13));
                         
                     }
@@ -206,18 +206,18 @@ public class TreatTCP extends Thread{
                 byte[] tmp = parseUntilStars("POSIT", msg.substring(tail.length+5).getBytes());
                 
                 System.out.println(new String(tmp));
-                answer.setText(answer.getText()+"\n"+new String(tmp));
+                answer.setText(answer.getText()+" "+new String(tmp));
                 break; 
             case "GLIS!":
                 System.out.println(entete+" "+treatInfoOneByte(tail[1]) +tcpEnd);
-                answer.setText(answer.getText()+"\n"+entete+" "+treatInfoOneByte(tail[1]) +tcpEnd);
+                answer.setText(answer.getText()+" "+entete+" "+treatInfoOneByte(tail[1]) +tcpEnd);
                 n = tail[1];
                 if(n != 0){
                     
                     byte[][] aux = parseUntilStars("GPLYR", msg.substring(tail.length+5).getBytes(), n, 30);
                     for(byte[] a: aux){
                         System.out.println(new String(a));
-                        answer.setText(answer.getText()+"\n"+new String(a));
+                        answer.setText(answer.getText()+" "+new String(a));
                     }
                 }     
         }

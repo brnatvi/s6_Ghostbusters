@@ -11,13 +11,13 @@ import java.awt.event.*;
 public class TreatPacket extends Thread {
 
     public String msg;
-    public JTextField answer;
+    public JTextArea answer;
 
     public TreatPacket(String _msg){
         this.msg = _msg;
     }
 
-    public void setTxt(JTextField _answer){
+    public void setTxt(JTextArea _answer){
         this.answer = _answer;
     }
 

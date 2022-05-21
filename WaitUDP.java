@@ -12,14 +12,14 @@ public class WaitUDP extends Thread {
 
     int port;
     DatagramSocket sock_udp;
-    JTextField answer;
+    JTextArea answer;
 
     public WaitUDP(DatagramSocket _sock_udp){
         
         this.sock_udp = _sock_udp;
     }
 
-    public void setTxt(JTextField txt){
+    public void setTxt(JTextArea txt){
         this.answer = txt;
     }
 

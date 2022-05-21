@@ -10,14 +10,13 @@ import java.util.Scanner;
 
 public class LabyrintheVue extends JPanel{
 
-    //JPanel p1 = new JPanel();
-
     private int hFrame, wFrame; 
-    JTextField answer = new JTextField();
-    JTextField clientAnswer = new JTextField();
+    JScrollBar scrollBar; 
+    JTextArea answer = new JTextArea("");
+    JTextArea clientAnswer = new JTextArea();
     JLabel id_label = new JLabel("Identifiant", SwingConstants.RIGHT);
     JTextField id = new JTextField();
-    JLabel mess_label = new JLabel("Message");
+    JLabel mess_label = new JLabel("Message", SwingConstants.RIGHT);
     JTextField mess = new JTextField();
     JLabel nb_partie_label = new JLabel("N° de partie");
     JTextField nb_partie = new JTextField();
@@ -28,18 +27,16 @@ public class LabyrintheVue extends JPanel{
     final JButton send = new JButton("Send");
     String[] entete = {"--Entete--","NEWPL","REGIS","SIZE?","LIST?", "GAME?", "START", "UPMOV", "DOMOV", "LEMOV", "RIMOV", "GLIS?", "MALL?", "SEND?", "IQUIT"};
     JComboBox<String> jComboBox;
-    
 
     LabyrintheController ctrl;
 
     public LabyrintheVue(int hf, int wf){
         super();
-        // p1.setLayout(g1);
-        
         setSize(wf,hf);
         jComboBox = new JComboBox<>(entete);
         jComboBox.setBounds(80,50,140,20);
         this.add(jComboBox);
+        
     }
 
     public void setCtrl(LabyrintheController _ctrl){
@@ -47,20 +44,24 @@ public class LabyrintheVue extends JPanel{
     }
 
     public void answerField(){
+        
         JLabel label = new JLabel("Réponse serveur");
-        answer.setEnabled(false);
+        answer.setEditable(false);
         this.add(label);
         answer.setText("----");
         answer.setPreferredSize(new Dimension(900,50));
-        answer.setForeground(Color.BLACK);
-        this.add(answer);
+        JScrollPane scroll = new JScrollPane(answer);
+        scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+        this.add(scroll);
 
+        JPanel panel = new JPanel();
         JLabel label1 = new JLabel("Message client");
-        clientAnswer.setEnabled(false);
-        clientAnswer.setPreferredSize(new Dimension(900,50));
-        clientAnswer.setForeground(Color.BLACK);
-        this.add(clientAnswer);
-        
+        clientAnswer.setEditable(false);
+        clientAnswer.setPreferredSize(new Dimension(900,50));        
+        panel.add(label1);
+        panel.add(clientAnswer);
+        this.add(panel);
+        //this.add(clientAnswer);
     }
 
     public void addTextField(JTextField j){
@@ -82,6 +83,7 @@ public class LabyrintheVue extends JPanel{
     public void clientAnswer(){
         id_label.setPreferredSize(new Dimension(500,25));
         id.setPreferredSize(new Dimension(500,25));
+        mess_label.setPreferredSize(new Dimension(500,25));
         mess.setPreferredSize(new Dimension(500,25));
         nb_partie.setPreferredSize(new Dimension(100,25));
         dist.setPreferredSize(new Dimension(25,25));

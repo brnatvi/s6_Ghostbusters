@@ -813,8 +813,18 @@ struct stGame *createGame(struct stGamerContext *gContext)
     memset(game->lstPlayers, 0, sizeof(struct listElements_t));
 
     //create labirinth
-    game->labirinth.width = 10;//(rand() % 96) + 32;
-    game->labirinth.heigh = 10;//(rand() % 96) + 32;
+    if(0 == gContext->serverCtx->mazeSzLimite)
+    {
+        game->labirinth.width = (rand() % 989) + 10;
+        game->labirinth.heigh = (rand() % 989) + 10;
+    }
+    else
+    {
+        game->labirinth.width = (rand() % (gContext->serverCtx->mazeSzLimite - 10)) + 10;
+        game->labirinth.heigh = (rand() % (gContext->serverCtx->mazeSzLimite - 10)) + 10;
+    }
+
+
     game->labirinth.maze  = maze_create(game->labirinth.width, game->labirinth.heigh);
     game->udpMsgSocket    = socket(AF_INET, SOCK_DGRAM, 0);
     game->udpMctSocket    = socket(AF_INET, SOCK_DGRAM, 0);
@@ -832,7 +842,7 @@ struct stGame *createGame(struct stGamerContext *gContext)
     }
     memset(game->labirinth.ghosts, 0, sizeof(struct listElements_t));
 
-    uint8_t bGhostsCount = 16;//(rand() % ((game->labirinth.width / 2) % 255)) + 8;
+    uint8_t bGhostsCount = (rand() % ((game->labirinth.width / 2) % 255)) + 8;
 
     while (bGhostsCount--)
     {

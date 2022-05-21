@@ -8,10 +8,26 @@ int main(int argc, char **argv)
 
     sigaction(SIGPIPE, &(struct sigaction){{SIG_IGN}}, NULL);
     srand(time(NULL)); 
+    int rez = EXIT_SUCCESS;
 
     // declaration & init
-    int port = 4242;
-    int rez = EXIT_SUCCESS;
+    if ((argc != 3) || (0 == strcmp(argv[1], "--help")))
+    {
+        printf("> Run :\n> ./server <port> <max size>\n");
+        printf("> N.B. <max size> has to be 0 or > 10\n");
+        printf("> if <max size> = 0 then maze size will be randomly selected from 10 to 999\n");
+        printf(">                   else maze size will be randomly selected from 10 to <max size>\n");
+        return rez;
+    }
+
+    int port  = atoi(argv[1]);
+    int maxSz = atoi(argv[2]);
+    if ((maxSz < 0) || ((maxSz >= 1) && (maxSz < MIN_MAZE_SIZE)))
+    {
+        log_error("Wrong input, <max size> is out of range, accepted value 0 or > 10");
+        return EXIT_FAILURE;
+    }
+    
     int tcpListenSocket = -1;
 
     // create context for connection
@@ -31,6 +47,7 @@ int main(int argc, char **argv)
         goto lExit;
     }
     memset(socAddress, 0, sizeof(struct sockaddr_in));
+    context->mazeSzLimite = (uint16_t)maxSz;
     context->sockAddress = *socAddress;
     context->lastGameId = 0;
 

@@ -18,6 +18,7 @@
 
 #define MULTI_CAST_ADDR "239.255.255.250"
 #define GHOST_MOVEMENT_INTERVAL_MS 10000
+#define MIN_MAZE_SIZE 10
 
 //activate to show protocol messages
 #define VERBOSE_TCP_PROTOCOL
@@ -84,6 +85,7 @@ struct stServerContext                        //Created by: server main
     uint16_t               lastGameId;        
     uint8_t                countStarted;
     pthread_mutex_t        serverLock;
+    uint16_t               mazeSzLimite;
 };
 
 struct stGamerContext

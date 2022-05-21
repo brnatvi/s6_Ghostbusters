@@ -116,6 +116,25 @@ bool commitMsg(struct stIpBuffer *buf, size_t szMsg)
     return true;
 }
 
+void print_msg_hex(uint8_t *msg, size_t size)
+{
+    printf("Raw message: [");
+    while (size--)
+    {         
+        //https://www.rapidtables.com/code/text/ascii-table.html
+        if ((*msg >= 32) && (*msg < 127)) //visible characters 
+        {
+            printf("%c:%03u-", *msg, (uint32_t)*msg);
+        }
+        else //control characters
+        {
+            printf("\xe2\x96\x91:%03u-", (uint32_t)*msg);
+        }
+        msg++;        
+    }   
+    printf("]\n");
+}
+
 int tcpGetMsg(int socket, struct stIpBuffer *buf, struct stRawMessage *pMsg)
 {
     if ((!buf) || (!pMsg)) return -1;
@@ -131,12 +150,14 @@ int tcpGetMsg(int socket, struct stIpBuffer *buf, struct stRawMessage *pMsg)
             if (!desc)
             {
                 log_error("Protocol error! message not recognized!");
+                print_msg_hex(buf->buffer, PREFIX_LEN);
                 return -1;
             }
 
             if (desc->msg >= eTcpMsgMaxValue)
             {
                 log_error("Protocol error! unsupported message type");
+                print_msg_hex(buf->buffer, desc->szMsg);
                 return -1;
             }
 
@@ -219,7 +240,7 @@ size_t createMsg(uint8_t *pMsg, enum msgId msg, va_list pVargs)
             else if (('P' == *formatIt) ||  ('p' == *formatIt)) //4 chars
             {
                 int ret = sprintf((char*)pBuf, "%04u", (uint32_t)va_arg(pVargs, uint32_t));
-                if (ret) pBuf += ret; 
+                if (ret) pBuf += 4; 
                 else return -1;
             }
             else if (('h' == *formatIt) || ('w' == *formatIt)) //2 bytes
@@ -251,14 +272,14 @@ size_t createMsg(uint8_t *pMsg, enum msgId msg, va_list pVargs)
             else if ( ('x' == *formatIt) || ('y' == *formatIt) || ('d' == *formatIt)) //3 chars
             {
                 int ret = sprintf((char*)pBuf, "%03u", va_arg(pVargs, uint32_t));
-                if (ret) pBuf += ret;
+                if (ret) pBuf += 3;
                 else return -1;
             }
             else if ('M' == *formatIt) //string 200 chars max
             {
-                const char *pMsg = (const char*)va_arg(pVargs, char*);
-                strncpy((char*)pBuf, pMsg, MAX_MSG_LEN);
-                size_t szMsg = strlen(pMsg);
+                const char *userMsg = (const char*)va_arg(pVargs, char*);
+                strncpy((char*)pBuf, userMsg, MAX_MSG_LEN);
+                size_t szMsg = strlen(userMsg);
                 if (szMsg <= MAX_MSG_LEN) { pBuf += szMsg; } else { pBuf += MAX_MSG_LEN; }
             }
         }
@@ -270,7 +291,9 @@ size_t createMsg(uint8_t *pMsg, enum msgId msg, va_list pVargs)
 
     if ((desc->szMsg) && ((pBuf - pBufStart) != desc->szMsg))
     {
-        log_error("{formatMsg} buffer formatting error!");
+        log_error("{formatMsg} buffer formatting error!, expected size %zu, calculated size %zu", 
+                  desc->szMsg, (pBuf - pBufStart));
+        printMsg(pMsg, ">!");
         return 0;
     }
 

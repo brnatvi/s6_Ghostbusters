@@ -9,10 +9,12 @@ public class SendTCP extends Thread {
     private int port_udp;
     public String msg;
     public PrintWriter out;
+    
 
     public SendTCP(String _msg, PrintWriter _out){
         this.msg = _msg;
         this.out = _out;
+        
     }
 
     public int getPortUDP(){
@@ -122,8 +124,10 @@ public class SendTCP extends Thread {
             
         }
         out.print(new String(toSend));
+        // l.clientAnswer.setText(msg);
+        
         out.flush();
-        // return toSend;
+        
     }
 
     

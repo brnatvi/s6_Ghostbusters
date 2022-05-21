@@ -3,6 +3,11 @@ import java.net.*;
 import java.nio.*;
 import java.util.Arrays;
 import java.util.Scanner;
+import java.util.concurrent.*;
+
+import java.util.*;
+import java.nio.charset.*;
+import java.lang.Object;
 
 class Client {
 
@@ -18,6 +23,9 @@ class Client {
     MulticastSocket sock_mult;
     InetAddress address ;
     boolean fin = false;
+
+    TreatTCP treat;
+    SendTCP send;
 
     //Connexion TCP du client au serveur
     public Client(String adresse, String port){
@@ -47,13 +55,14 @@ class Client {
         return (new String(buf)); 
     }
 
-    public void getMessage(BufferedReader in){
+    //LabyrintheVue l
+    public void getMessage(){
         char[] buf = new char[1024];
         String msg = read(in, buf, 0, 1024);
         
         // TreatTCP treat = new TreatTCP(sockfd);
         // treat.treatMess(msg);
-        TreatTCP treat = new TreatTCP(sockfd, msg);
+        treat = new TreatTCP(msg);
         treat.start();
         try {
             treat.join();
@@ -61,7 +70,7 @@ class Client {
         catch(Exception e){
             e.printStackTrace();
         }
-        if(msg.substring(0,5).equals("GOBYE")){
+        if(msg.substring(0,5).equals("GOBYE") || msg.substring(0,5).equals("ENDGA")){
             try {
                 fin = true;
                 in.close();
@@ -81,12 +90,7 @@ class Client {
                 sock_mult = new MulticastSocket(treat.port_mult);
                 WaitMultiCast mc = new WaitMultiCast(sock_mult, treat.getIP());
                 mc.start();
-                // try {
-                //     mc.join();
-                // }
-                // catch(Exception e){
-                //     e.printStackTrace();
-                // }
+                
             }
             catch(Exception e){
                 e.printStackTrace();
@@ -96,13 +100,11 @@ class Client {
     }
   
     //Partie send
-    public void sendMessage(PrintWriter out){
-        String msg = sc.nextLine();
-        // SendTCP send = new SendTCP();
-        // byte[] toSend = send.sendMess(msg);
-        // out.print(new String(toSend));
-        // out.flush();
-        SendTCP send = new SendTCP(msg, out);
+    // , LabyrintheVue l
+    public void sendMessage(String msg){
+        // String msg = sc.nextLine();
+        System.out.println(msg);
+        send = new SendTCP(msg, out);
         send.start();
         try {
             send.join();
@@ -117,12 +119,7 @@ class Client {
                 WaitUDP wu = new WaitUDP(sock_udp);
                 
                 wu.start();
-                // try {
-                //     wu.join();
-                // }
-                // catch(Exception e){
-                //     e.printStackTrace();
-                // }
+                
             }
             catch(Exception e){
                 e.printStackTrace();
@@ -134,10 +131,64 @@ class Client {
     // VRAI TEST
     public static void main(String[] args){       
         Client p = new Client(args[0], args[1]);
-        while(!p.fin){
-            p.getMessage(p.in);
-            p.sendMessage(p.out);    
-        }       
+        // LabyrintheVue l = new LabyrintheVue(10,12, 100, 100, p.in, p.out, p.sockfd);
+        LinkedList<String> players = new LinkedList<String>();
+        LinkedList<Integer> games = new LinkedList<Integer>();
+        int nbGame, totalGames, width, height = 0;
+
+        try {
+            p.getMessage();
+            Scenario sc = new Scenario(p.treat);
+            System.out.println(p.treat);
+            totalGames = p.treat.totalGames;
+            games = p.treat.games;
+
+            p.sendMessage(sc.inscription(totalGames, games));
+            p.getMessage();
+            nbGame = p.treat.nbGame;
+            
+            TimeUnit.SECONDS.sleep(3);
+            
+            p.sendMessage(sc.sizeAndList("SIZE?", nbGame));
+            System.out.println(nbGame);
+            p.getMessage();
+            System.out.println(p.treat);
+            TimeUnit.SECONDS.sleep(3);
+            height = p.treat.x;
+            width = p.treat.y;
+            System.out.println(height);
+            System.out.println(width);
+            p.sendMessage(sc.sizeAndList("LIST?", nbGame));
+            players = p.treat.players;
+            p.getMessage();
+            TimeUnit.SECONDS.sleep(3);
+
+            p.sendMessage("START***");
+            TimeUnit.SECONDS.sleep(3);
+            p.getMessage();
+            
+            int coup = 50;
+            while(coup > 0){
+                p.sendMessage(sc.movePlayer());
+                p.getMessage();
+                TimeUnit.SECONDS.sleep(3);
+
+                String s = sc.chatMessage();
+                if(s != ""){
+                    p.sendMessage(s);
+                    p.getMessage();
+                    TimeUnit.SECONDS.sleep(3);
+                }
+                
+                coup --;
+            }
+            p.sendMessage(sc.quit());
+            p.getMessage();
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+
              
     }
 

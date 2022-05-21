@@ -3,18 +3,27 @@ import java.net.*;
 import java.nio.*;
 import java.util.Arrays;
 import java.util.Scanner;
+import java.util.*;
 
 public class TreatTCP extends Thread{
 
-    public Socket sockfd;
     public String msg;
     public int port_mult;
+    // LabyrintheVue lv;
 
     private String ip;
+    // Partie partie;
+    
+    LinkedList<Integer> games;
+    int totalGames = 0;
+    int height, width = 0;
+    LinkedList<String> players;
+    int nbGame;
+    int x, y;
 
-    public TreatTCP(Socket _sockfd, String _msg){
-        this.sockfd = _sockfd;
-        this.msg = _msg;
+    public TreatTCP(String _msg){
+        this.msg = _msg; 
+        // partie = new Partie();  
     }
 
     // parseip till #
@@ -100,47 +109,73 @@ public class TreatTCP extends Thread{
         byte[] tail = parseUntilStars(entete, (msg.substring(5)).getBytes());
         String tcpEnd = "***";
         int n = 0;
+        String s = "";
         switch(entete){
             case "REGNO":
             case "DUNNO":
             case "NMEMB":
             case "GOBYE":
-            case "MOVE!":
-            case "MOVEF":
             case "MALL!": 
             case "SEND!":
             case "NSEND":
                 System.out.println(entete+new String(tail));
+                // lv.answer.setText(entete+new String(tail));
+                break;
+            case "MOVE!":
+            case "MOVEF":
+                System.out.println(entete+new String(tail));
+                setX(new String(tail).substring(1,4));
+                setY(new String(tail).substring(5,8));
+                // lv.answer.setText(entete+new String(tail));
                 break;
             case "REGOK":
             case "UNROK":
                 System.out.println(entete+" "+treatInfoOneByte(tail[1])+tcpEnd);
+                // lv.answer.setText(entete+" "+treatInfoOneByte(tail[1])+tcpEnd);
+                setNbGame(treatInfoOneByte(tail[1]));
                 break;
             case "SIZE!":
-                // for(byte b: Arrays.copyOfRange(tail, 3, 5)) {
-                //     System.out.print(b+" ");
-                // }
-                // System.out.println();
+                
                 System.out.println(entete+" "+treatInfoOneByte(tail[1])+" "+ treatInfoTwoBytes(Arrays.copyOfRange(tail, 3, 5))+" "+
                 treatInfoTwoBytes(Arrays.copyOfRange(tail, 6, 8)) +tcpEnd);
+                // lv.answer.setText(entete+" "+treatInfoOneByte(tail[1])+" "+ treatInfoTwoBytes(Arrays.copyOfRange(tail, 3, 5))+" "+
+                //treatInfoTwoBytes(Arrays.copyOfRange(tail, 6, 8)) +tcpEnd);
+
+                setNbGame(treatInfoOneByte(tail[1]));
+                setHeight(treatInfoTwoBytes(Arrays.copyOfRange(tail, 3, 5)));
+                setWidth(treatInfoTwoBytes(Arrays.copyOfRange(tail, 6, 8)));
+                System.out.println(height);
+                System.out.println(width);
                 break;
             case "GAMES":
                 System.out.println(entete+" "+treatInfoOneByte(tail[1])+tcpEnd);
+                s = s + (entete+" "+treatInfoOneByte(tail[1])+tcpEnd);
                 n = tail[1];
                 if(n != 0){
                     byte[][]l = parseUntilStars("OGAME", msg.substring(tail.length+5).getBytes(), n, 12);
+                    // parties = new LinkedList<Integer>();
+                    initGames();
+                    setTotalGames(treatInfoOneByte(tail[1]));
                     for(byte[] k: l){
                         System.out.println("OGAME "+ treatInfoOneByte(k[6])+" "+treatInfoOneByte(k[8])+tcpEnd);
+                        s  = s +"\n"+("OGAME "+ treatInfoOneByte(k[6])+" "+treatInfoOneByte(k[8])+tcpEnd);
+                        addToGames(treatInfoOneByte(k[6]));
                     }
                 }
+                // lv.answer.setText(s);
                 break;
             case "LIST!":
                 System.out.println(entete+" "+treatInfoOneByte(tail[1])+" "+treatInfoOneByte(tail[3])+tcpEnd); //tail[1] et tail[3]
+                // lv.answer.setText(entete+" "+treatInfoOneByte(tail[1])+" "+treatInfoOneByte(tail[3])+tcpEnd);
                 n = tail[3];
                 if(n != 0){
                     byte[][]tmp = parseUntilStars("PLAYR", msg.substring(tail.length+5).getBytes(), n, 17);
+                    initPlayers();
                     for(byte[] t: tmp){
                         System.out.println(new String(t));
+                        // lv.answer.setText(new String(t));
+                        addToPlayers(msg.substring(tail.length+6+5, tail.length+6+13));
+                        
                     }
                 }  
                 break;
@@ -148,34 +183,98 @@ public class TreatTCP extends Thread{
                 System.out.println(entete+" "+treatInfoOneByte(tail[1])+" "+treatInfoTwoBytes(Arrays.copyOfRange(tail,3,5))+" "+
                 treatInfoTwoBytes(Arrays.copyOfRange(tail,6,8))+" "+treatInfoOneByte(tail[9])+" "+
                 new String(Arrays.copyOfRange(tail, 11, 34)));
-                // System.out.println(msg);
+                //lv.answer.setText(entete+" "+treatInfoOneByte(tail[1])+" "+treatInfoTwoBytes(Arrays.copyOfRange(tail,3,5))+" "+
+                //treatInfoTwoBytes(Arrays.copyOfRange(tail,6,8))+" "+treatInfoOneByte(tail[9])+" "+
+                //new String(Arrays.copyOfRange(tail, 11, 34)));
+                
                 this.ip = msg.substring(16,31);
-                
-                // System.out.println(msg.substring(32,36));
-                
                 this.port_mult = Integer.parseInt(msg.substring(32, 36));
 
 
                 String posit = (msg.substring(tail.length+5));
-                
+                setX(msg.substring(tail.length+5+15, tail.length+5+15+3));
+                setY(msg.substring(tail.length+5+15+4, tail.length+5+15+7));
                 byte[] tmp = parseUntilStars("POSIT", msg.substring(tail.length+5).getBytes());
+                
                 System.out.println(new String(tmp));
+                // lv.answer.setText(new String(tmp));
                 break; 
             case "GLIS!":
                 System.out.println(entete+" "+treatInfoOneByte(tail[1]) +tcpEnd);
+                // lv.answer.setText(entete+" "+treatInfoOneByte(tail[1]) +tcpEnd);
                 n = tail[1];
                 if(n != 0){
-                    /*
-                    GPLYR tharsiya 001 001 1234***
-                     */
+                    
                     byte[][] aux = parseUntilStars("GPLYR", msg.substring(tail.length+5).getBytes(), n, 30);
                     for(byte[] a: aux){
                         System.out.println(new String(a));
+                        // lv.answer.setText(new String(a));
                     }
                 }     
         }
+
+
         
     }
+
+    public void initGames(){
+        games = new LinkedList<Integer>();
+    }
+
+    public void initPlayers(){
+        players= new LinkedList<String>();
+    }
+
+    public void setX(String val){
+        x = Integer.parseInt(val);
+    }
+
+    public void setY(String val){
+        y = Integer.parseInt(val);
+    }
+
+    public void setHeight(String val){
+        height = Integer.parseInt(val);
+        
+    }
+
+    public void setWidth(String val){
+        width = Integer.parseInt(val);
+        
+    }
+
+    public void setNbGame(String val){
+        nbGame = Integer.parseInt(val);
+    }
+
+    public void setTotalGames(String val){
+        totalGames = Integer.parseInt(val);
+    }
+
+    public void addToGames(String val){
+        games.add(Integer.parseInt(val));
+    }
+
+    public void addToPlayers(String val){
+        players.add(val);
+    }
+
+    public void clearGames(){
+        games.clear();
+    }
+
+    public void clearPlayers(){
+        players.clear();
+    }
+
+    
+
+        public static void main(String[] args){
+            String s = " 001 003";
+            byte[] tail = s.getBytes();
+            System.out.println((new String(tail).substring(1,4)));
+            System.out.println((new String(tail).substring(5,8)));
+        }
 
 
 }

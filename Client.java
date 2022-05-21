@@ -4,7 +4,10 @@ import java.nio.*;
 import java.util.Arrays;
 import java.util.Scanner;
 import java.util.concurrent.*;
-
+import javax.swing.*;
+import java.awt.Graphics;
+import java.awt.*;
+import java.awt.event.*;
 import java.util.*;
 import java.nio.charset.*;
 import java.lang.Object;
@@ -56,13 +59,14 @@ class Client {
     }
 
     //LabyrintheVue l
-    public void getMessage(){
+    public void getMessage(JTextField txt){
         char[] buf = new char[1024];
         String msg = read(in, buf, 0, 1024);
         
         // TreatTCP treat = new TreatTCP(sockfd);
         // treat.treatMess(msg);
         treat = new TreatTCP(msg);
+        treat.setText(txt);
         treat.start();
         try {
             treat.join();
@@ -89,6 +93,7 @@ class Client {
                                
                 sock_mult = new MulticastSocket(treat.port_mult);
                 WaitMultiCast mc = new WaitMultiCast(sock_mult, treat.getIP());
+                mc.setText(txt);
                 mc.start();
                 
             }
@@ -101,7 +106,7 @@ class Client {
   
     //Partie send
     // , LabyrintheVue l
-    public void sendMessage(){
+    public void sendMessage(JTextField txt){
         String msg = sc.nextLine();
         // System.out.println(msg);
         send = new SendTCP(msg, out);
@@ -117,7 +122,7 @@ class Client {
                 port_udp = send.getPortUDP();
                 sock_udp = new DatagramSocket(port_udp);
                 WaitUDP wu = new WaitUDP(sock_udp);
-                
+                wu.setTxt(txt);
                 wu.start();
                 
             }
@@ -137,7 +142,7 @@ class Client {
         vue.setCtrl(ctrl);
         vue.frame();
         while(!p.fin){
-            p.getMessage();
+            p.getMessage(vue.answer);
             
         }
         

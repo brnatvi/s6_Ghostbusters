@@ -3,13 +3,22 @@ import java.net.*;
 import java.nio.*;
 import java.util.Arrays;
 import java.util.Scanner;
+import javax.swing.*;
+import java.awt.Graphics;
+import java.awt.*;
+import java.awt.event.*;
 
 public class TreatPacket extends Thread {
 
     public String msg;
+    public JTextField answer;
 
     public TreatPacket(String _msg){
         this.msg = _msg;
+    }
+
+    public void setTxt(JTextField _answer){
+        this.answer = _answer;
     }
 
     public byte[] conditionMet(byte[]tail, int n1){
@@ -53,7 +62,7 @@ public class TreatPacket extends Thread {
             case "SCORE":
             case "MESSA":
             case "ENDGA":
-                
+                answer.setText(answer.getText()+"\n"+entete+new String(tail));
                 System.out.println(entete+new String(tail));
                 break;
             

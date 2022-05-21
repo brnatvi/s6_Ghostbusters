@@ -3,15 +3,24 @@ import java.net.*;
 import java.nio.*;
 import java.util.Arrays;
 import java.util.Scanner;
+import javax.swing.*;
+import java.awt.Graphics;
+import java.awt.*;
+import java.awt.event.*;
 
 public class WaitUDP extends Thread {
 
     int port;
     DatagramSocket sock_udp;
+    JTextField answer;
 
     public WaitUDP(DatagramSocket _sock_udp){
         
         this.sock_udp = _sock_udp;
+    }
+
+    public void setTxt(JTextField txt){
+        this.answer = txt;
     }
 
     public void run(){
@@ -24,6 +33,7 @@ public class WaitUDP extends Thread {
                 String st = new String(paquet.getData(), 0, paquet.getLength()-3);
                 try {
                     TreatPacket tp = new TreatPacket(new String(paquet.getData(), 0, paquet.getLength()));
+                    tp.setTxt(answer);
                     tp.start();
                     try {
                         tp.join();

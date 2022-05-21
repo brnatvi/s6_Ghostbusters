@@ -3,15 +3,24 @@ import java.net.*;
 import java.nio.*;
 import java.util.Arrays;
 import java.util.Scanner;
+import javax.swing.*;
+import java.awt.Graphics;
+import java.awt.*;
+import java.awt.event.*;
 
 public class WaitMultiCast extends Thread {
 
     MulticastSocket sock_mult;
     String ip;
+    JTextField answer;
 
     public WaitMultiCast(MulticastSocket _sock_mult, String _ip){
         this.sock_mult = _sock_mult;
         this.ip = _ip;
+    }
+
+    public void setText(JTextField _answer){
+        this.answer = _answer;
     }
 
     public void run(){
@@ -26,6 +35,7 @@ public class WaitMultiCast extends Thread {
                 
                 try {
                     TreatPacket tp = new TreatPacket(new String(paquet.getData(), 0, paquet.getLength()));
+                    tp.setTxt(answer);
                     tp.start();
                     try {
                         tp.join();

@@ -24,38 +24,21 @@ public class LabyrintheVue extends JPanel{
     JLabel port_udp_label = new JLabel("Port UDP");
     JTextField port_udp = new JTextField();
     final JButton send = new JButton("Send");
-    String[] entete = {"--Entete--","NEWPL","REGIS","SIZE?","LIST?", "GAME?"};
+    String[] entete = {"--Entete--","NEWPL","REGIS","SIZE?","LIST?", "GAME?", "START", "UPMOV", "DOMOV", "LEMOV", "RIMOV", "GLIS?", "MALL?", "SEND?", "IQUIT"};
     JComboBox<String> jComboBox;
 
     LabyrintheController ctrl;
-
-
-
-
 
     public LabyrintheVue(int hf, int wf){
         super();
         setSize(wf,hf);
         jComboBox = new JComboBox<>(entete);
+        jComboBox.setBounds(80,50,140,20);
         this.add(jComboBox);
     }
 
     public void setCtrl(LabyrintheController _ctrl){
         this.ctrl = _ctrl;
-    }
-
-    public void grid(int widthLaby, int heightLaby){
-        MyButton[][] buttons = new MyButton[widthLaby][heightLaby];
-        GridLayout g = (new GridLayout(widthLaby, heightLaby));
-        this.setLayout(g);
-        for (int i = 0; i < widthLaby; i++) {
-            for (int j = 0; j < heightLaby; j++) {
-                buttons[i][j] = new MyButton("("+i + "," + j+")");
-
-                this.add(buttons[i][j]);
-            }
-        }
-        
     }
 
     public void answerField(){
@@ -112,17 +95,20 @@ public class LabyrintheVue extends JPanel{
     public String getMessageToSend(){
         String toSend = "";
         String entete = (String)jComboBox.getSelectedItem();
+        
         String space = " ";
         String tcpEnd = "***";
         toSend += entete;
-        toSend += space;
+        
         switch(entete) {
             case "NEWPL":
+                toSend += space;
                 toSend += id.getText();
                 toSend += space;
                 toSend += port_udp.getText();
                 break;
             case "REGIS":
+                toSend += space;
                 toSend += id.getText();
                 toSend += space;
                 toSend += port_udp.getText();
@@ -132,10 +118,30 @@ public class LabyrintheVue extends JPanel{
             case "UNREG":
             case "SIZE?":
             case "LIST?":
+                toSend += space;
                 toSend += nb_partie.getText();
                 break;
-            case "GAME?":
+            case "GAME?":    
+            case "START":
+            case "GLIS?":
+            case "IQUIT":
                 break;
+            case "UPMOV":
+            case "LEMOV":
+            case "RIMOV":
+            case "DOMOV":
+                toSend += space;
+                toSend += dist.getText();
+                break;
+            case "MALL?":
+                toSend += space;
+                toSend += mess.getText();
+                break;
+            case "SEND?":
+                toSend += space;
+                toSend += id.getText();
+                toSend += space;
+                toSend += mess.getText();
             
         }
         toSend += tcpEnd;
@@ -146,13 +152,25 @@ public class LabyrintheVue extends JPanel{
     // public void frame
     public void frame(){
         JFrame frame = new JFrame("GHOST LAB");
+        Grid laby = new Grid(10, 10);
+        laby.grid();
         answerField();
-        
         clientAnswer();
+
+        JPanel p1 = new JPanel();
+        GridLayout g1 = new GridLayout(2,2);
+        p1.setLayout(g1);
+        p1.add(laby);
+        p1.add(this);
+        // frame.add(laby);
+        // frame.add(this);
+        frame.add(p1);
         
-        frame.add(this);
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-        frame.setContentPane(this);
+        
+        //frame.setContentPane(this);
+        frame.setContentPane(p1);
+        
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         
         frame.pack();

@@ -13,14 +13,13 @@ public class LabyrintheController {
     LabyrintheVue vue;
     BufferedReader in;
     PrintWriter out; 
-    
-    
-
         //Variables importantes
     int portUDP;
     DatagramSocket sockUDP;
     MulticastSocket sockMult;
     Socket sockfd;
+
+    boolean start = false;
 
     public LabyrintheController(LabyrintheVue _vue, BufferedReader _in, PrintWriter _out, Socket _sockfd){
         this.vue = _vue;
@@ -30,13 +29,13 @@ public class LabyrintheController {
     }
 
     public void ctrlFunctions(){
-        clientEntete();
+        clientAvantStart();
+        clientAfterStart();
         sendButton();
+        
     }
 
-    public void clientEntete(){
-        
-        vue.jComboBox.setBounds(80,50,140,20);
+    public void clientAvantStart(){
         vue.jComboBox.addActionListener(new ActionListener(){
             @Override
             public void actionPerformed(ActionEvent e){
@@ -44,7 +43,7 @@ public class LabyrintheController {
                 String s = (String)box.getSelectedItem();
                 switch(s){
                     case "NEWPL":
-                        System.out.println(s);
+                        
                         vue.add(vue.id_label);
                         vue.add(vue.id);
                         vue.add(vue.port_udp_label);
@@ -101,11 +100,102 @@ public class LabyrintheController {
                         vue.add(vue.send);
                         vue.updateUI();
                         break;
+                    case "START":
+                        vue.removeLabel(vue.id_label);
+                        vue.removeTextField(vue.id);
+                        vue.removeLabel(vue.port_udp_label);
+                        vue.removeTextField(vue.port_udp);
+                        vue.removeLabel(vue.dist_label);
+                        vue.removeTextField(vue.dist);
+                        vue.removeLabel(vue.mess_label);
+                        vue.removeTextField(vue.mess);
+                        vue.removeLabel(vue.nb_partie_label);
+                        vue.removeTextField(vue.nb_partie);
+                        vue.add(vue.send);
+                        vue.updateUI();
+                        start = true;
+                        break;
                 }
             }
         });
         
-        vue.add(vue.jComboBox);
+        // vue.add(vue.jComboBox);
+        
+    }
+
+    public void clientAfterStart(){        
+        vue.jComboBox.addActionListener(new ActionListener(){
+            @Override
+            public void actionPerformed(ActionEvent e){
+                JComboBox box = (JComboBox) e.getSource();
+                String s = (String)box.getSelectedItem();
+                switch(s){
+                    case "UPMOV":
+                    case "DOMOV":
+                    case "LEMOV":
+                    case "RIMOV":
+                        vue.remove(vue.id_label);
+                        vue.remove(vue.id);
+                        vue.remove(vue.port_udp_label);
+                        vue.remove(vue.port_udp);
+                        vue.add(vue.dist_label);
+                        vue.add(vue.dist);
+                        vue.remove(vue.mess_label);
+                        vue.remove(vue.mess);
+                        vue.remove(vue.nb_partie_label);
+                        vue.remove(vue.nb_partie);
+                        vue.add(vue.send);
+                        vue.updateUI();
+                        break;
+                    case "MALL?":
+                        vue.remove(vue.id_label);
+                        vue.remove(vue.id);
+                        vue.remove(vue.port_udp_label);
+                        vue.remove(vue.port_udp);
+                        vue.remove(vue.dist_label);
+                        vue.remove(vue.dist);
+                        vue.add(vue.mess_label);
+                        vue.add(vue.mess);
+                        vue.remove(vue.nb_partie_label);
+                        vue.remove(vue.nb_partie);
+                        vue.add(vue.send);
+                        vue.updateUI();
+                        break;
+                    case "SEND?":
+                        vue.add(vue.id_label);
+                        vue.add(vue.id);
+                        vue.removeLabel(vue.port_udp_label);
+                        vue.removeTextField(vue.port_udp);
+                        vue.removeLabel(vue.dist_label);
+                        vue.removeTextField(vue.dist);
+                        vue.add(vue.mess_label);
+                        vue.add(vue.mess);
+                        vue.remove(vue.nb_partie_label);
+                        vue.remove(vue.nb_partie);
+                        vue.add(vue.send);
+                        vue.updateUI();
+                        break;
+                    case "GLIS?":
+                    case "IQUIT":
+                        vue.removeLabel(vue.id_label);
+                        vue.removeTextField(vue.id);
+                        vue.removeLabel(vue.port_udp_label);
+                        vue.removeTextField(vue.port_udp);
+                        vue.removeLabel(vue.dist_label);
+                        vue.removeTextField(vue.dist);
+                        vue.removeLabel(vue.mess_label);
+                        vue.removeTextField(vue.mess);
+                        vue.removeLabel(vue.nb_partie_label);
+                        vue.removeTextField(vue.nb_partie);
+                        vue.add(vue.send);
+                        vue.updateUI();
+                        break;
+                    
+                }
+            }
+        });
+        
+        // vue.add(vue.jComboBox);
         
     }
 
@@ -119,13 +209,16 @@ public class LabyrintheController {
                 if(ready){
                     sendMessage(toSend);
                     vue.initializeText();
+                    
                 }
                 
             }
         });
     }
 
-    public void sendMessage(String msg){        
+    public void sendMessage(String msg){ 
+        System.out.println(msg); 
+        vue.clientAnswer.setText(msg);      
         SendTCP send = new SendTCP(msg, out);
         send.start();
         try {
@@ -139,7 +232,7 @@ public class LabyrintheController {
                 portUDP = send.getPortUDP();
                 sockUDP = new DatagramSocket(portUDP);
                 WaitUDP wu = new WaitUDP(sockUDP);
-                
+                wu.setTxt(vue.answer);
                 wu.start();
                 
             }
@@ -169,6 +262,14 @@ public class LabyrintheController {
         return (isNumeric(s) && Integer.parseInt(s) <= 255);
     }
 
+    public boolean checkDist(String s){
+        return (isNumeric(s) && Integer.parseInt(s) <= 999);
+    }
+
+    public boolean checkMess(String s){
+        return s.length() <= 200 ;
+    }
+
     public boolean contraintes(String entete){
         boolean canSend = false;
         switch(entete){
@@ -183,6 +284,24 @@ public class LabyrintheController {
             case "LIST?":
                 canSend = checkNbPartie(vue.nb_partie.getText());
                 break; 
+            case "START":
+            case "GAME?":
+            case "GLIS?":
+            case "IQUIT":
+                canSend = true;
+                break;
+            case "UPMOV":
+            case "DOMOV":
+            case "LEMOV":
+            case "RIMOV":
+                canSend = checkDist(vue.dist.getText());
+                break;
+            case "MALL?":
+                canSend = checkMess(vue.mess.getText());
+                break;
+            case "SEND?":
+                canSend = checkId(vue.id.getText()) && checkMess(vue.mess.getText());
+                break;
         }
         return canSend;
     }

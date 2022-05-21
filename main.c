@@ -13,11 +13,11 @@ int main(int argc, char **argv)
     stContext.cliH = getTerminalHeight();
     
     const char *pIp = "127.0.0.1";
-    if ((argc != 3) || (0 == strcmp(argv[1], "--help")))
+    if ((argc != 4) || (0 == strcmp(argv[1], "--help")))
     {
         printf("Ghostbusters game, welcome!\nRun:\n");      
-        printf("> ./ghost_client <server hostname> <player id>\n");
-        printf("> Example: ./ghost_client locomotive Pernata1\n");
+        printf("> ./ghost_client <server hostname> <player id> <port>\n");
+        printf("> Example: ./ghost_client locomotive Pernata1 4242\n");
         printf("> player_id - hase to be 8 characters long\n");
         return 0;
     }
@@ -28,14 +28,15 @@ int main(int argc, char **argv)
         printf("ERROR: player_id hase to be 8 characters long\n");
         return 0;
     }
-    strcpy(stContext.userId, argv[2]);
+    strcpy(stContext.userId, argv[2]);    
+    int port = atoi(argv[3]);
 
-    stContext.tcpSocket     = tcp_connect(pIp, SERVER_PORT);
+    stContext.tcpSocket     = tcp_connect(pIp, port);
     stContext.udpPeerSocket = NULL_DESCRIPTOR;
 
     if (NULL_DESCRIPTOR == stContext.tcpSocket)
     {
-        log_error("Can't connect to server %s:%u\n", pIp, (uint32_t)SERVER_PORT);
+        log_error("Can't connect to server %s:%u\n", pIp, (uint32_t)port);
         goto labelExit;
     }
     else

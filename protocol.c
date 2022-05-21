@@ -119,6 +119,26 @@ bool commitMsg(struct stIpBuffer *pBuf, size_t szMsg)
     return true;
 }
 
+void print_msg_hex(uint8_t *msg, size_t size)
+{
+    printf("Raw message: [");
+    while (size--)
+    {         
+        //https://www.rapidtables.com/code/text/ascii-table.html
+        if ((*msg >= 32) && (*msg < 127)) //visible characters 
+        {
+            printf("%c:%03u-", *msg, (uint32_t)*msg);
+        }
+        else //control characters
+        {
+            printf("\xe2\x96\x91:%03u-", (uint32_t)*msg);
+        }
+        msg++;        
+    }   
+    printf("]\n");
+}
+
+
 bool socketReadMsg(int iSocket, struct stIpBuffer *pBuf, struct stRawMessage *pMsg)
 {
     return socketReadMsgEx(iSocket, pBuf, pMsg, 0xFFFFFFFF);
@@ -139,6 +159,7 @@ bool socketReadMsgEx(int iSocket, struct stIpBuffer *pBuf, struct stRawMessage *
             if (!pDesc)
             {
                 log_error("Protocol error! message not recognized!");
+                print_msg_hex(pBuf->pBuffer, MSG_START_LEN);
                 return false;
             }
 
@@ -222,8 +243,8 @@ bool sendMsg(int iSocket, enum eMsgId eMsg, ...)
             }
             else if (('P' == *pFormatIt) ||  ('p' == *pFormatIt)) //4 chars
             {
-                int iRet = sprintf((char*)pBuf, "%04u", (uint32_t)va_arg(pVargs, uint32_t));
-                if (iRet) pBuf += iRet; else return -1;
+                int ret = sprintf((char*)pBuf, "%04u", (uint32_t)va_arg(pVargs, uint32_t));
+                if (ret) pBuf += 4; else return -1;
             }
             else if (('h' == *pFormatIt) || ('w' == *pFormatIt)) //2 bytes
             {
@@ -250,14 +271,14 @@ bool sendMsg(int iSocket, enum eMsgId eMsg, ...)
             }
             else if ( ('x' == *pFormatIt) || ('y' == *pFormatIt) || ('d' == *pFormatIt)) //3 chars
             {
-                int iRet = sprintf((char*)pBuf, "%03u", va_arg(pVargs, uint32_t));
-                if (iRet) pBuf += iRet; else return -1;
+                int ret = sprintf((char*)pBuf, "%03u", va_arg(pVargs, uint32_t));
+                if (ret) pBuf += 3; else return -1;
             }
             else if ('M' == *pFormatIt) //string 200 chars max
             {
-                const char *pMsg = (const char*)va_arg(pVargs, char*);
-                strncpy((char*)pBuf, pMsg, MSG_MAX_TXT_LEN);
-                size_t szMsg = strlen(pMsg);
+                const char *userMsg = (const char*)va_arg(pVargs, char*);
+                strncpy((char*)pBuf, userMsg, MSG_MAX_TXT_LEN);
+                size_t szMsg = strlen(userMsg);
                 if (szMsg <= MSG_MAX_TXT_LEN) { pBuf += szMsg; } else { pBuf += MSG_MAX_TXT_LEN; }
             }
         }
@@ -271,7 +292,10 @@ bool sendMsg(int iSocket, enum eMsgId eMsg, ...)
 
     if ((pDesc->szMsg) && ((pBuf - pBufStart) != pDesc->szMsg))
     {
-        log_error("{formatMsg} buffer formatting error!");
+        log_error("{formatMsg} buffer formatting error!, expected size %zu, calculated size %zu", 
+                  pDesc->szMsg, (pBuf - pBufStart));
+        printMsg(pMsg, ">!");
+
         return 0;
     }
 

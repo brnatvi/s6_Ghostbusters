@@ -2,7 +2,7 @@
 
 #define USER_ID_LEN      8           // length of gamer's id (preudo)
 #define LEN_PORT         4           // length of port in string
-#define SERVER_PORT      4242        // length of port in string
+//#define SERVER_PORT      4242        // length of port in string
 
 #define MSG_START_LEN    5           // length of keywords
 #define MSG_END_LEN      3           // length of keywords

@@ -1,37 +1,34 @@
-import java.io.*;
+package client;
+
 import java.net.*;
-import java.nio.*;
-import java.util.Arrays;
-import java.util.Scanner;
 import javax.swing.*;
-import java.awt.Graphics;
-import java.awt.*;
-import java.awt.event.*;
 
-public class WaitUDP extends Thread {
+public class WaitMultiCast extends Thread {
 
-    int port;
-    DatagramSocket sock_udp;
+    MulticastSocket sock_mult;
+    String ip;
     JTextArea answer;
     boolean fin = false;
 
-    public WaitUDP(DatagramSocket _sock_udp){
-        
-        this.sock_udp = _sock_udp;
+    public WaitMultiCast(MulticastSocket _sock_mult, String _ip){
+        this.sock_mult = _sock_mult;
+        this.ip = _ip;
     }
 
-    public void setTxt(JTextArea txt){
-        this.answer = txt;
+    public void setText(JTextArea _answer){
+        this.answer = _answer;
     }
 
     public void run(){
         try {
+            // MulticastSocket sock_mult = new MulticastSocket(port);
             
+            sock_mult.joinGroup(InetAddress.getByName(ip));
             byte[] data = new byte[218];
-            while(!sock_udp.isClosed()){
+            while(true){
                 DatagramPacket paquet = new DatagramPacket(data, data.length);
-                sock_udp.receive(paquet);
-                String st = new String(paquet.getData(), 0, paquet.getLength()-3);
+                sock_mult.receive(paquet);
+                
                 try {
                     TreatPacket tp = new TreatPacket(new String(paquet.getData(), 0, paquet.getLength()));
                     tp.setTxt(answer);
@@ -46,7 +43,8 @@ public class WaitUDP extends Thread {
                 catch(Exception e){
                     e.printStackTrace();
                 }
-                System.out.println(st);
+                // String st = new String(paquet.getData(), 0, paquet.getLength()-3);
+                // System.out.println(st);
             }
             
         }
@@ -54,6 +52,4 @@ public class WaitUDP extends Thread {
             e.printStackTrace();
         }
     }
-
-    
 }

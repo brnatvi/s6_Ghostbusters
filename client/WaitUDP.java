@@ -1,39 +1,32 @@
-import java.io.*;
+package client;
+
 import java.net.*;
-import java.nio.*;
-import java.util.Arrays;
-import java.util.Scanner;
 import javax.swing.*;
-import java.awt.Graphics;
-import java.awt.*;
-import java.awt.event.*;
 
-public class WaitMultiCast extends Thread {
+public class WaitUDP extends Thread {
 
-    MulticastSocket sock_mult;
-    String ip;
+    int port;
+    DatagramSocket sock_udp;
     JTextArea answer;
     boolean fin = false;
 
-    public WaitMultiCast(MulticastSocket _sock_mult, String _ip){
-        this.sock_mult = _sock_mult;
-        this.ip = _ip;
+    public WaitUDP(DatagramSocket _sock_udp){
+        
+        this.sock_udp = _sock_udp;
     }
 
-    public void setText(JTextArea _answer){
-        this.answer = _answer;
+    public void setTxt(JTextArea txt){
+        this.answer = txt;
     }
 
     public void run(){
         try {
-            // MulticastSocket sock_mult = new MulticastSocket(port);
             
-            sock_mult.joinGroup(InetAddress.getByName(ip));
             byte[] data = new byte[218];
-            while(true){
+            while(!sock_udp.isClosed()){
                 DatagramPacket paquet = new DatagramPacket(data, data.length);
-                sock_mult.receive(paquet);
-                
+                sock_udp.receive(paquet);
+                String st = new String(paquet.getData(), 0, paquet.getLength()-3);
                 try {
                     TreatPacket tp = new TreatPacket(new String(paquet.getData(), 0, paquet.getLength()));
                     tp.setTxt(answer);
@@ -48,8 +41,7 @@ public class WaitMultiCast extends Thread {
                 catch(Exception e){
                     e.printStackTrace();
                 }
-                // String st = new String(paquet.getData(), 0, paquet.getLength()-3);
-                // System.out.println(st);
+                System.out.println(st);
             }
             
         }
@@ -57,4 +49,6 @@ public class WaitMultiCast extends Thread {
             e.printStackTrace();
         }
     }
+
+    
 }

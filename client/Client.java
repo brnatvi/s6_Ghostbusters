@@ -1,16 +1,9 @@
+package client;
+
 import java.io.*;
 import java.net.*;
-import java.nio.*;
-import java.util.Arrays;
-import java.util.Scanner;
-import java.util.concurrent.*;
 import javax.swing.*;
-import java.awt.Graphics;
 import java.awt.*;
-import java.awt.event.*;
-import java.util.*;
-import java.nio.charset.*;
-import java.lang.Object;
 
 class Client {
 

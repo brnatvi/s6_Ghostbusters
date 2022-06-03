@@ -1,13 +1,8 @@
-import java.io.*;
-import java.net.*;
-import java.nio.*;
+package client;
+
 import java.util.Arrays;
-import java.util.Scanner;
 import java.util.*;
 import javax.swing.*;
-import java.awt.Graphics;
-import java.awt.*;
-import java.awt.event.*;
 
 
 public class TreatTCP extends Thread{
